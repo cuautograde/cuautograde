@@ -5,6 +5,8 @@ import os
 import threading
 import subprocess
 
+DEVNULL = open(os.devnull, 'wb')
+
 def iter_not_string(i):
   return hasattr(i, '__len__') and not isinstance(i, basestring)
 
@@ -30,7 +32,7 @@ def distribute_system_command(nprocesses, timeout, *cmds):
       if item is not None:
         id, param = item
         task_start_time = time.time()
-        r = subprocess.Popen(param)
+        r = subprocess.Popen(param, stdout=DEVNULL, stderr=subprocess.STDOUT)
         while r.poll() == None and time.time() - task_start_time < timeout:
           time.sleep(5)
         if r.poll() == None:
@@ -91,10 +93,10 @@ if __name__ == '__main__':
   process_count = 2 * multiprocessing.cpu_count()
 
   if args.additional_arguments:
-    res = distribute_system_command(process_count, 'python', args.executable,
-      solution_dirs, result_files, *args.additional_arguments)
+    res = distribute_system_command(process_count, float(args.timeout),'python',
+        args.executable, solution_dirs, result_files,*args.additional_arguments)
   else:
-    res = distribute_system_command(process_count, 'python', args.executable,
-      solution_dirs, result_files)
+    res = distribute_system_command(process_count, float(args.timeout),'python',
+        args.executable, solution_dirs, result_files)
 
 # vim: set ts=2 sw=2 expandtab:
