@@ -8,13 +8,13 @@ import subprocess
 def iter_not_string(i):
   return hasattr(i, '__len__') and not isinstance(i, basestring)
 
-def distribute_system_command(nprocesses, *cmds):
+def distribute_system_command(nprocesses, timeout, *cmds):
   '''Runs a series of system processes using 'nprocesses' workers and returns
   their collected return codes in the same order .'''
   count = max(map(lambda l: len(l) if iter_not_string(l) else 1, cmds))
   params = zip(*[c if iter_not_string(c) else ([c] * count) for c in cmds])
-  queue = zip(range(len(cmds)), params)
-  total_task_count = len(queue)
+  queue = zip(range(count), params)
+  total_task_count = count
   queue_lock = threading.Lock()
   results = []
   results_lock = threading.Lock()
@@ -29,8 +29,13 @@ def distribute_system_command(nprocesses, *cmds):
 
       if item is not None:
         id, param = item
-        r = subprocess.call(param)
-        print 'task ended'
+        task_start_time = time.time()
+        r = subprocess.Popen(param)
+        while r.poll() == None and time.time() - task_start_time < timeout:
+          time.sleep(5)
+        if r.poll() == None:
+          r.terminate()
+          print 'Task timed-out'
         with results_lock:
           results.append((id, r))
           time_elapsed = time.time() - start_time
@@ -63,6 +68,9 @@ if __name__ == '__main__':
     'file to store results in. The file will be placed in the ' +
     'students\' respective solution directory', action='store',
     default='results.json')
+  
+  parser.add_argument('@t', '@@timeout', help='The max number of seconds a ' +
+      'process is allowed to run.', default=600, type=float)
 
   parser.add_argument('@a', '@@additional-arguments', help='Any arguments ' +
     'pass to the executable.', nargs='*')
@@ -77,6 +85,8 @@ if __name__ == '__main__':
       solution_dirs.append(os.path.join(args.student_solution_root, group))
       result_files.append(os.path.join(args.student_solution_root, group,
         args.result_file_name))
+
+  print 'Found {0} jobs.'.format(len(solution_dirs))
 
   process_count = 2 * multiprocessing.cpu_count()
 
