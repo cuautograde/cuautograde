@@ -72,7 +72,7 @@ if __name__ == '__main__':
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   
   parser.add_argument('-r', '--test-results-directory', help='The directory ' +
-      'containing all the students test results.', default='code.zip')
+      'containing all the students test results.', default='code')
 
   parser.add_argument('-f', '--result-file-name', help='The name of the ' +
       'result file in the student\'s result directory', default='results.json')
