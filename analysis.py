@@ -2,13 +2,22 @@ import json
 import os
 import argparse
 import matplotlib.pyplot as plt
-
+import numbers
+import itertools
+import csv
+import sys
 
 class GroupStatistics(object):
   def __init__(self, group_members, results_dict):
     self.members = group_members
-    for stat, val in results_dict.iteritems():
-      setattr(self, stat, val)
+    self.errors = results_dict['errors']
+    self.failures = results_dict['failures']
+    self.skipped = results_dict['skipped']
+    self.successes = results_dict['successes']
+    self.unexpectedSuccesses = results_dict['unexpectedSuccesses']
+    self.aborted = results_dict['aborted']
+    self.expectedFailures = results_dict['expectedFailures']
+    self.allTests = results_dict['allTests']
 
   def format_group(self):
     '''Given a list of one or more NetIDs, return a formatted'''
@@ -17,6 +26,18 @@ class GroupStatistics(object):
     else:
       return 'Group of ' + ', '.join(self.members[:-1]) + ' and ' + \
         str(self.members[-1])
+
+  def get_grade(self, weights=1):
+    assert isinstance(weights, numbers.Number) or \
+        (isinstance(weights, dict) and len(weights) == len(self.allTests))
+    singular_weight = 1
+    if isinstance(weights, numbers.Number):
+      singular_weight = weights
+      weights = dict()
+    grade = 0
+    for test in itertools.chain(self.successes, self.expectedFailures):
+      grade += weights.get(test, singular_weight)
+    return grade
 
   @staticmethod
   def get_members_from_dir_name(groupdirname):
@@ -30,7 +51,7 @@ class GroupStatistics(object):
 
   @classmethod
   def from_file(cls, filename):
-    base = os.path.basename(filename)
+    base = os.path.split(os.path.split(os.path.abspath(filename))[0])[1]
     assert os.path.isfile(filename), filename
     with open(filename) as result_file:
       return cls(cls.get_members_from_dir_name(base), json.load(result_file))
@@ -55,10 +76,9 @@ class GroupStatistics(object):
   def success_count(self):
     return self.test_count() - self.unsuccessful_count()
 
-  @staticmethod
-  def pretty_print_category(name):
+  def pretty_print_category(self, name):
     item = getattr(self, name)
-    if len(item) == 0:
+    if item is None or len(item) == 0:
       return ''
     output = name + '\n\n'
     if isinstance(item, dict):
@@ -68,17 +88,18 @@ class GroupStatistics(object):
         output += v.split('\n')[-2] + '\n\n'
     else:
       for i in item:
-        mod_name, class_name, func_name = k.split('.')
+        mod_name, class_name, func_name = i.split('.')
         output += '{0}.{1}\n\n'.format(class_name, func_name)
     output += ('-' * 80) + '\n'
+    return output
 
   def __str__(self):
     output = self.format_group() + '\n\n'
-    output += GroupStatistics.pretty_print_category('errors')
-    output += GroupStatistics.pretty_print_category('failures')
-    output += GroupStatistics.pretty_print_category('aborted')
-    output += GroupStatistics.pretty_print_category('skipped')
-    output += GroupStatistics.pretty_print_category('unexpectedSuccesses')
+    output += self.pretty_print_category('errors')
+    output += self.pretty_print_category('failures')
+    output += self.pretty_print_category('aborted')
+    output += self.pretty_print_category('skipped')
+    output += self.pretty_print_category('unexpectedSuccesses')
     return output
 
   @staticmethod
@@ -104,7 +125,7 @@ class GroupStatistics(object):
     return dist
 
   @classmethod
-  def plot_error_count_vs_students(cls, instances):
+  def plot_error_count_vs_students(cls, instances, filename):
     assert len(instances) > 0
     bins = cls.get_histogram(instances)
     fig = plt.figure()
@@ -116,10 +137,10 @@ class GroupStatistics(object):
     p.set_title('Distribution of the number of errors made by the students')
     p.set_ylabel('Number of Groups')
     fig.tight_layout()
-    fig.savefig('errors_vs_num_students.png')
+    fig.savefig(filename, bbox_inches='tight')
 
   @classmethod
-  def plot_error_type_vs_students(cls, instances):
+  def plot_error_type_vs_students(cls, instances, filename):
     assert len(instances) > 0
     bins = {i: 0 for i in range(len(instances[0].allTests) + 1)}
     for i in instances:
@@ -130,24 +151,105 @@ class GroupStatistics(object):
     p.set_title('Distribution of the various errors made by the students')
     p.set_xlabel('Number of Errors')
     p.set_ylabel('Number of Groups')
-    fig.savefig('num_errors_vs_num_students.png', bbox_inches='tight')
+    fig.savefig(filename, bbox_inches='tight')
+
+
+class GradeFileProcessor(object):
+  def __init__(self, filename, result_filename=None):
+    self.filename = filename
+    self.result_filename = filename if not result_filename else result_filename
+    with open(self.filename, 'r') as input_file:
+      contents = list(csv.reader(input_file))
+      assert len(contents) > 0
+      self.headers_list = contents[0]
+      self.headers_index_map = {k:i for i, k in enumerate(self.headers_list)}
+      self.contents_list = contents[1:]
+      self.contents_index_map = \
+          {e[0]: i for i, e in enumerate(self.contents_list)}
+
+      # Make all the rows match the number of the headers
+      for i in range(len(self.contents_list)):
+        diff = len(self.headers_list) - len(self.contents_list[i])
+        assert diff >= 0
+        if diff > 0:
+          self.contents_list[i] += [''] * diff
+  
+  def update_records(self, record_ids, subs_values):
+    if not hasattr(record_ids, '__iter__'):
+      record_ids = [record_ids]
+    for rec_id in record_ids:
+      row_index = self.contents_index_map[rec_id]
+      for k, v in subs_values.iteritems():
+        self.contents_list[row_index][self.headers_index_map[k]] = v
+  
+  def dump(self, filename):
+    with open(filename, 'wb') as out_file:
+      w = csv.writer(out_file)
+      w.writerow(self.headers_list)
+      w.writerows(self.contents_list)
+
+
+def groups_to_csv(groups, mapping, csv_file, output_file, weights_map=None):
+  p = GradeFileProcessor(csv_file, output_file)
+  for g in groups:
+    subs_values = dict()
+    for func_name, rec_name in mapping.iteritems():
+      if weights_map == None or not func_name in weights_map:
+        subs_values[rec_name] = getattr(g, func_name)()
+      else:
+        subs_values[rec_name] = getattr(g, func_name)(weights_map[func_name])
+    p.update_records(g.members, subs_values)
+  p.dump(output_file)
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Summarize the test results',
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   
-  parser.add_argument('-r', '--test-results-directory', help='The directory ' +
-      'containing all the students test results.', default='code')
+  parser.add_argument('test_results_directory', help='The directory ' +
+      'containing all the students test results.')
 
   parser.add_argument('-f', '--result-filename', help='The name of the ' +
       'result file in the student\'s result directory', default='results.json')
+
+  parser.add_argument('-c', '--csv-result-file', help='The file downloaded ' +
+      'from CMS for adding grades.', default=None)
+
+  parser.add_argument('-o', '--csv-result-output-file', help='The CSV file ' +
+      'to write the output to. Same ad csv-result-file if not specified.',
+      default=None)
+
+  parser.add_argument('-s', '--num-students-vs-num-errors-plot',
+      help='The file to store the plot of number of students ' +
+      'versus the number of errors.', default=None)
+
+  parser.add_argument('-e', '--num-students-by-error-type-plot',
+      help='The file to store the plot of the number of students for each ' +
+      'type of error', default=None)
+
+  parser.add_argument('-w', '--weight-per-test', help='The weight assigned ' +
+      'to each test to compute the grade.', default=1, type=float)
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    exit(-2)
  
   args = parser.parse_args()
 
   instances = GroupStatistics.from_directory(args.test_results_directory,
       args.result_filename)
-  GroupStatistics.plot_error_count_vs_students(instances)
-  GroupStatistics.plot_error_type_vs_students(instances)
+  
+  if args.csv_result_file is not None:
+    groups_to_csv(instances, {'get_grade': 'Code', '__str__': 'Add Comments'},
+        args.csv_result_file, args.csv_result_output_file,
+        {'get_grade' : args.weight_per_test})
+  
+  if args.num_students_vs_num_errors_plot is not None:
+    GroupStatistics.plot_error_count_vs_students(instances,
+        args.num_students_vs_num_errors_plot)
+  
+  if args.num_students_by_error_type_plot:
+    GroupStatistics.plot_error_type_vs_students(instances,
+        args.num_students_by_error_type_plot)
 
 # vim: set ts=2 sw=2 expandtab:
