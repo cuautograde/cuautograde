@@ -1,3 +1,4 @@
+#pylint: disable-all
 import json
 import os
 import argparse

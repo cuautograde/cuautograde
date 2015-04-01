@@ -1,3 +1,4 @@
+#pylint: disable-alnt: disable-all
 import os
 import argparse
 import zipfile
