@@ -21,9 +21,10 @@ console = sys.stdout
 # Protects the output stream
 console_lock = threading.Lock()
 
-# Send all prints to black hole
+# Send all prints and error prints to black hole
 f = open(os.devnull, 'w')
 sys.stdout = f
+sys.stderr = f
 
 
 def displayln(s):
@@ -245,7 +246,8 @@ class TimeoutTestRunner(object):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='This script is used to run ' +
     'a single tests at a time. The tests must be designed to follow the ' +
-    'pattern described in the README.md')
+    'pattern described in the README.md',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
   parser.add_argument('module', help='The module containing tests to be run.')
 
@@ -259,10 +261,22 @@ if __name__ == '__main__':
   parser.add_argument('-t', '--timeout', help='The max number of seconds a ' +
     'test is allowed to run.', default=600, type=float)
 
+  parser.add_argument('-o', '--overwrite_existing_results', help='Indicates ' +
+    'what action to take when a result file already exists',
+    action='store_true', default=False)
+
   parser.add_argument('-v', '--verbose', help='Show the result of every test.',
     action='store_true', default=False)
 
   args = parser.parse_args()
+
+  # First check if the result file exists
+  result_file_path = os.path.join(args.test_root, args.result_file_path)
+  basename = os.path.basename(os.path.abspath(args.test_root))
+  if os.path.isfile(result_file_path) and not args.overwrite_existing_results:
+    displayln('Results already exist for {0}'.format(basename))
+    exit(1)
+
   # A hack to make symlinks work
   sys.path.append(os.getcwd())
   if os.path.isdir(args.test_root):
@@ -270,13 +284,11 @@ if __name__ == '__main__':
     m = __import__(args.module)
     tests = unittest.defaultTestLoader.loadTestsFromModule(m)
     result = TimeoutTestRunner(args.timeout).run(tests, args.verbose)
-    result_file_path = os.path.join(args.test_root, args.result_file_path)
     summary = result.summarize(tests)
 
     with open(result_file_path, 'w') as result_file:
-        json.dump(summary, result_file, indent=True)
+      json.dump(summary, result_file, indent=True)
 
-    basename = os.path.basename(os.path.abspath(args.test_root))
 
     # Display a summary of the students' results to let the test runner know
     # the test runner is making progress
@@ -286,6 +298,9 @@ if __name__ == '__main__':
       len(summary['successes']), len(summary['errors']),
       len(summary['failures']), len(summary['aborted']),
       len(summary['skipped']), len(summary['allTests'])))
+    
+    if len(summary['aborted']) > 0:
+      exit(2)
   else:
     raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
 

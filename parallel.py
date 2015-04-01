@@ -1,4 +1,3 @@
-#pylint: disable-all
 import time
 import argparse
 import multiprocessing
@@ -7,9 +6,7 @@ import threading
 import subprocess
 import unittest
 import traceback
-
-DEVNULL = open(os.devnull, 'wb')
-
+import sys
 
 def iter_not_string(i):
   return hasattr(i, '__iter__')
@@ -37,18 +34,14 @@ def distribute_system_command(nprocesses, timeout, *cmds):
       if item is not None:
         id, param = item
         task_start_time = time.time()
-        r = subprocess.Popen(param, stdout=DEVNULL, stderr=subprocess.STDOUT)
-        while r.poll() == None and time.time() - task_start_time < timeout:
-          time.sleep(5)
-        if r.poll() == None:
-          r.terminate()
-          print 'Task timed-out'
+        r = subprocess.call(param)
         with results_lock:
           results.append((id, r))
           time_elapsed = time.time() - start_time
           avg_time = time_elapsed / len(results)
           tasks_done = len(results)
           projected_time = avg_time * (total_task_count - tasks_done) / 60
+          # pylint: disable=E1601
           print '{0}/{1} tasks complete. Approx time left: {2:.2f} min'.\
                   format(tasks_done, total_task_count, projected_time)
   threads = []
@@ -61,103 +54,11 @@ def distribute_system_command(nprocesses, timeout, *cmds):
   return map(lambda r: r[1], sorted(results, key=lambda r: r[0]))
 
 
-class InterruptibleThreadGroup(threading.Thread):
-  '''This class allows a user to run a list of tasks in different threads,
-  and respond to requests for stoping, such as due to timeouts.'''
-
-  def __init__(self, tasks):
-    threading.Thread(self, name='Controller')
-    self.threads = []
-    for task in tasks:
-      thread = threading.Thread(target=task)
-      thread.daemon = True
-      self.threads.append(thread)
-    self.is_running = False
-    self.running_status_lock = threading.Lock()
-    self.running_status_changed = threading.Condition(self.running_status_lock)
-
-  def run(self):
-    '''Start the daemon threads and wait for a signal to stop.'''
-    for t in self.threads:
-      t.start()
-    with self.running_status_lock:
-      self.is_running = True
-      while self.is_running:
-        self.running_status_changed.wait()
-
-  def stop_all_tasks(self):
-    '''Signals the controlling thread to stop. Provided that the controlling
-    thread is the only non-daemon thread, stopping it should force all the
-    daemon task threads to die as well.'''
-    with self.running_status_lock:
-      self.is_running = False
-      self.running_status_changed.notify_all()
-
-  def wait_for_timeout(self, timeout_in_seconds):
-    '''This function causes the calling thread to sleep for the given timeout
-    and then call stop_all_tasks.'''
-    start_time = time.time()
-    while time.time() - start_time < timeout_in_seconds:
-      thread.sleep(timeout_in_seconds - (time.time() - start_time))
-    self.stop_all_tasks()
-
-  @classmethod
-  def run_tasks_until_timeout(cls, tasks, timeout):
-    '''This class takes in a list of tasks and runs them up to timeout
-    seconds.'''
-    tg = cls(task)
-    tg.start()
-    tg.wait_for_timeout(timeout)
-
-
-class SynchronizedTestResult(unittest.TestResult):
-  def __init__(self):
-    unittest.TextTestRunner.__init__(self)
-    self.lock = threading.Lock()
-
-  def addError(self, test, err):
-    with self.lock:
-      self.errors.append((test, traceback.format_exc(err)))
-
-  def addFailure(self, test, err):
-    with self.lock:
-      self.failures.append((test, traceback.format_exc(err)))
-
-  def addSuccess(self, test):
-    pass
-
-  def addSkip(self, test, reason):
-    with self.lock:
-      self.skipped.append((test, reason))
-
-  def addExpectedFailure(self, test, err):
-    with self.lock:
-      self.expectedFailures.append((test, err))
-
-  def addUnexpectedSuccess(self, test):
-    with self.lock:
-      self.unexpectedSuccesses.append(test)
-
-
-class TimeoutTestRunner(object):
-  def __init__(self, timeout):
-    self.timeout = timeout
-
-  def run(self, test_entity):
-    task_list = []
-    result = SynchronizedTestResult()
-    if iter_not_string(test_entity):
-      for test in test_entity:
-        task_list.append(lambda: test.run(result))
-    else:
-      task_list.append(lambda: test_entity.run(result))
-    InterruptibleThreadGroup.run_tasks_until_timeout(task_list, self.timeout)
-    return result
-
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='This script is used to run ' +
     'several tests at once. The tests must be designed to follow the ' +
-    'pattern described in the README.md')
+    'pattern described in the README.md',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
   parser.add_argument('module', help='The module containing tests to be run.')
 
@@ -172,25 +73,45 @@ if __name__ == '__main__':
   parser.add_argument('-t', '--timeout', help='The max number of seconds a ' +
     'test is allowed to run.', default=600, type=float)
 
+  parser.add_argument('-o', '--overwrite_existing_results', help='Indicates ' +
+    'what action to take when a result file already exists',
+    action='store_true', default=False)
+
+  parser.add_argument('-v', '--verbose', help='Show the result of every test.',
+    action='store_true', default=False)
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    exit(-2)
+
   args = parser.parse_args()
    
+  test_roots = []
+  result_files = []
   for group in os.listdir(args.batch_test_root):
     instance_root = os.path.join(args.batch_test_root, group)
     if os.path.isdir(instance_root):
-      sys.path.append(instance_root)
-      m = __import__(args.module)
-      reload(m)
-      tests = unittest.defaultTestLoader.loadTestsFromModule(m)
-      t = TimeoutTestRunner(args.timeout)
-      sys.path.remove(instance_root)
+      test_roots.append(instance_root)
 
   process_count = 2 * multiprocessing.cpu_count()
 
-  if args.additional_arguments:
-    res = distribute_system_command(process_count, float(args.timeout),'python',
-        args.executable, solution_dirs, result_files,*args.additional_arguments)
-  else:
-    res = distribute_system_command(process_count, float(args.timeout),'python',
-        args.executable, solution_dirs, result_files)
+  params = ['python', 'runner.py', args.module, test_roots,
+      '-t', str(args.timeout * 0.95), '-r', args.result_file_path]
+
+  if args.overwrite_existing_results:
+    params.append('-o')
+
+  if args.verbose:
+    params.append('-v')
+
+  res = distribute_system_command(process_count, args.timeout, *params)
+
+  non_zero_indicies = [i for i, e in enumerate(res) if e != 0]
+  # pylint: disable=E1601
+  print '\n' + ('-' * 80) + '\n'
+  for i in non_zero_indicies:
+    base = os.path.basename(test_roots[i])
+    # pylint: disable=E1601
+    print '{0} returned non-zero return code ({1})'.format(base, res[i])
 
 # vim: set ts=2 sw=2 expandtab:
