@@ -1,71 +1,136 @@
-#pylint: disable-all
 import json
 import os
 import argparse
+import matplotlib.pyplot as plt
 
 
-def pretty_print_test_results(group, filename):
-  if not os.path.isfile(filename):
-    return
-  with open(filename) as result_file:
-    res = json.load(result_file)
-    print
-    if len(group) == 2:
-      print 'Group of {0} and {1}'.format(group[0], group[1]),
+class GroupStatistics(object):
+  def __init__(self, group_members, results_dict):
+    self.members = group_members
+    for stat, val in results_dict.iteritems():
+      setattr(self, stat, val)
+
+  def format_group(self):
+    '''Given a list of one or more NetIDs, return a formatted'''
+    if len(self.members) == 1:
+      return 'Single person group {0}'.format(self.members[0])
     else:
-      print 'Single person group {0}'.format(group[0]),
-    successes = len(res['testids']) - len(res['failures']) - len(res['errors'])
-    print 'Failed: {0}, Errors: {1}, Successes {2}'.format(len(res['failures']),
-        len(res['errors']), successes)
-    print
-   
-  if len(res['failures']) > 0:
-    print '--------'
-    print 'Failures:'
-    print '--------'
-    print
-    for k, v in res['failures'].iteritems():
-      print k[9:]
-      info = v.rsplit('\n')
-      print info[-2]
-      print
-    
-  if len(res['errors']) > 0:
-    print '------'
-    print 'Errors:'
-    print '------'
-    print
-    for k, v in res['errors'].iteritems():
-      print k[9:]
-      print v
-  
-  print '-' * 80
+      return 'Group of ' + ', '.join(self.members[:-1]) + ' and ' + \
+        str(self.members[-1])
 
-
-def split_group_dir_name(groupdirname):
-    '''
-        groupdirname -- the directory name corresponding to the group used by
-        CMS
-        A list containing the netIDs of group members
-    '''
-
+  @staticmethod
+  def get_members_from_dir_name(groupdirname):
     group_prefix = 'group_of_'
     # If the group consists of only one person
     if not groupdirname.startswith(group_prefix):
-        return [groupdirname]
-
+      return [groupdirname]
     # Delete group prefix
     netids = groupdirname.replace(group_prefix, '')
     return netids.split('_')
 
+  @classmethod
+  def from_file(cls, filename):
+    base = os.path.basename(filename)
+    assert os.path.isfile(filename), filename
+    with open(filename) as result_file:
+      return cls(cls.get_members_from_dir_name(base), json.load(result_file))
 
-def gather_test_results(solution_dir, result_file):
-  params = []
-  for g in sorted(os.listdir(solution_dir)):
-    if os.path.isdir(os.path.join(solution_dir, g)):
-      group = split_group_dir_name(g)
-      params.append((group, os.path.join(solution_dir, g, result_file)))
-  return params
+  @classmethod
+  def from_directory(cls, root_dir, result_file_path):
+    assert os.path.isdir(root_dir)
+    stat_list = []
+    for f in os.listdir(root_dir):
+      path = os.path.join(root_dir, f, result_file_path)
+      if os.path.isfile(path):
+        stat_list.append(cls.from_file(path))
+    return stat_list
+
+  def test_count(self):
+    return len(self.allTests)
+
+  def unsuccessful_count(self):
+    return len(self.errors) + len(self.failures) + len(self.skipped) + \
+        len(self.unexpectedSuccesses) + len(self.aborted)
+    
+  def success_count(self):
+    return self.test_count() - self.unsuccessful_count()
+
+  @staticmethod
+  def pretty_print_category(name):
+    item = getattr(self, name)
+    if len(item) == 0:
+      return ''
+    output = name + '\n\n'
+    if isinstance(item, dict):
+      for k, v in item.iteritems():
+        mod_name, class_name, func_name = k.split('.')
+        output += '{0}.{1}\n'.format(class_name, func_name)
+        output += v.split('\n')[-2] + '\n\n'
+    else:
+      for i in item:
+        mod_name, class_name, func_name = k.split('.')
+        output += '{0}.{1}\n\n'.format(class_name, func_name)
+    output += ('-' * 80) + '\n'
+
+  def __str__(self):
+    output = self.format_group() + '\n\n'
+    output += GroupStatistics.pretty_print_category('errors')
+    output += GroupStatistics.pretty_print_category('failures')
+    output += GroupStatistics.pretty_print_category('aborted')
+    output += GroupStatistics.pretty_print_category('skipped')
+    output += GroupStatistics.pretty_print_category('unexpectedSuccesses')
+    return output
+
+  @staticmethod
+  def update_count(cat_name, dist, instance):
+    item = getattr(instance, cat_name)
+    if isinstance(item, dict):
+      for k, v in item.iteritems():
+        dist[k] += 1
+    else:
+      for v in item:
+        dist[v] += 1
+
+  @classmethod
+  def get_histogram(cls, instances):
+    assert len(instances) > 0
+    dist = {k: 0 for k in instances[0].allTests}
+    for i in instances:
+      GroupStatistics.update_count('errors', dist, i)
+      GroupStatistics.update_count('failures', dist, i)
+      GroupStatistics.update_count('aborted', dist, i)
+      GroupStatistics.update_count('skipped', dist, i)
+      GroupStatistics.update_count('unexpectedSuccesses', dist, i)
+    return dist
+
+  @classmethod
+  def plot_error_count_vs_students(cls, instances):
+    assert len(instances) > 0
+    bins = cls.get_histogram(instances)
+    fig = plt.figure()
+    p = fig.add_subplot(111)
+    p.bar(range(len(bins)), bins.values())
+    labels = [x[x.rfind('.')+1:] for x in bins.keys()]
+    p.set_xticks(range(len(bins)))
+    p.set_xticklabels(labels, rotation=90)
+    p.set_title('Distribution of the number of errors made by the students')
+    p.set_ylabel('Number of Groups')
+    fig.tight_layout()
+    fig.savefig('errors_vs_num_students.png')
+
+  @classmethod
+  def plot_error_type_vs_students(cls, instances):
+    assert len(instances) > 0
+    bins = {i: 0 for i in range(len(instances[0].allTests) + 1)}
+    for i in instances:
+      bins[i.unsuccessful_count()] += 1
+    fig = plt.figure()
+    p = fig.add_subplot(111)
+    p.bar(bins.keys(), bins.values())
+    p.set_title('Distribution of the various errors made by the students')
+    p.set_xlabel('Number of Errors')
+    p.set_ylabel('Number of Groups')
+    fig.savefig('num_errors_vs_num_students.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -75,14 +140,14 @@ if __name__ == '__main__':
   parser.add_argument('-r', '--test-results-directory', help='The directory ' +
       'containing all the students test results.', default='code')
 
-  parser.add_argument('-f', '--result-file-name', help='The name of the ' +
+  parser.add_argument('-f', '--result-filename', help='The name of the ' +
       'result file in the student\'s result directory', default='results.json')
  
   args = parser.parse_args()
 
-  p = gather_test_results(args.test_results_directory, args.result_file_name)
-
-  for group in p:
-    pretty_print_test_results(*group)
+  instances = GroupStatistics.from_directory(args.test_results_directory,
+      args.result_filename)
+  GroupStatistics.plot_error_count_vs_students(instances)
+  GroupStatistics.plot_error_type_vs_students(instances)
 
 # vim: set ts=2 sw=2 expandtab:

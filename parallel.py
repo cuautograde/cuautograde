@@ -62,18 +62,18 @@ if __name__ == '__main__':
 
   parser.add_argument('module', help='The module containing tests to be run.')
 
-  parser.add_argument('batch_test_root', help='The directory containing ' +
+  parser.add_argument('batch-test-root', help='The directory containing ' +
     'subdirectories, each of which contain an instance of the modules to be ' +
     'tested.')
 
-  parser.add_argument('-r', '--result_file_path', help='The path to the file, '+
+  parser.add_argument('-r', '--result-file-path', help='The path to the file, '+
     'relative to the directory containing the test modules, to store the ' + 
     'results as JSON objects.', default='results.json')
 
   parser.add_argument('-t', '--timeout', help='The max number of seconds a ' +
     'test is allowed to run.', default=600, type=float)
 
-  parser.add_argument('-o', '--overwrite_existing_results', help='Indicates ' +
+  parser.add_argument('-o', '--overwrite-existing-results', help='Indicates ' +
     'what action to take when a result file already exists',
     action='store_true', default=False)
 
