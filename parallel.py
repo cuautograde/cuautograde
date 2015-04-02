@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
   parser.add_argument('module', help='The module containing tests to be run.')
 
-  parser.add_argument('batch-test-root', help='The directory containing ' +
+  parser.add_argument('batch_test_root', help='The directory containing ' +
     'subdirectories, each of which contain an instance of the modules to be ' +
     'tested.')
 
@@ -96,7 +96,7 @@ if __name__ == '__main__':
   process_count = 2 * multiprocessing.cpu_count()
 
   params = ['python', 'runner.py', args.module, test_roots,
-      '-t', str(args.timeout * 0.95), '-r', args.result_file_path]
+      '-t', str(args.timeout), '-r', args.result_file_path]
 
   if args.overwrite_existing_results:
     params.append('-o')

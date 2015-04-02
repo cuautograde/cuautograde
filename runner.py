@@ -21,10 +21,11 @@ console = sys.stdout
 # Protects the output stream
 console_lock = threading.Lock()
 
-# Send all prints and error prints to black hole
-f = open(os.devnull, 'w')
-sys.stdout = f
-sys.stderr = f
+def redirect_console():
+  '''Send all prints and error prints to black hole.'''
+  f = open(os.devnull, 'w')
+  sys.stdout = f
+  sys.stderr = f
 
 
 def displayln(s):
@@ -35,6 +36,11 @@ def displayln(s):
 
 def iter_not_string(i):
   return hasattr(i, '__iter__')
+
+
+def doc_for(test):
+  mod_name, class_name, func_name = test.id().split('.')
+  return getattr(test, func_name).__doc__
 
 
 def list_of_tests_gen(s):
@@ -200,7 +206,7 @@ class SynchronizedTestResult(unittest.TestResult):
       'skipped': {k.id(): v for k, v in self.skipped},
       'expectedFailures': {k.id(): v for k, v in self.expectedFailures},
       'unexpectedSuccesses': [t.id() for t in self.unexpectedSuccesses],
-      'allTests': [t.id() for t in all_tests]
+      'allTests': {t.id(): doc_for(t) for t in all_tests}
     }
     processed_union = set().union(s['errors'].keys(), s['failures'].keys(),
         s['successes'], s['skipped'].keys(), s['expectedFailures'].keys(),
@@ -251,7 +257,7 @@ if __name__ == '__main__':
 
   parser.add_argument('module', help='The module containing tests to be run.')
 
-  parser.add_argument('test-root', help='The directory containing the modules '+
+  parser.add_argument('test_root', help='The directory containing the modules '+
     'to be tested.')
 
   parser.add_argument('-r', '--result-file-path', help='The path to the file, '+
@@ -268,8 +274,14 @@ if __name__ == '__main__':
   parser.add_argument('-v', '--verbose', help='Show the result of every test.',
     action='store_true', default=False)
 
+  if len(sys.argv) == 1:
+    parser.print_help()
+    exit(-2)
+  
   args = parser.parse_args()
-
+ 
+  redirect_console()
+    
   # First check if the result file exists
   result_file_path = os.path.join(args.test_root, args.result_file_path)
   basename = os.path.basename(os.path.abspath(args.test_root))

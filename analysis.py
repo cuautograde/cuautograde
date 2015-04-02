@@ -6,6 +6,8 @@ import numbers
 import itertools
 import csv
 import sys
+import textwrap
+
 
 class GroupStatistics(object):
   def __init__(self, group_members, results_dict):
@@ -80,16 +82,20 @@ class GroupStatistics(object):
     item = getattr(self, name)
     if item is None or len(item) == 0:
       return ''
-    output = name + '\n\n'
+    output = name.upper() + '\n\n'
     if isinstance(item, dict):
       for k, v in item.iteritems():
         mod_name, class_name, func_name = k.split('.')
-        output += '{0}.{1}\n'.format(class_name, func_name)
+        output += '{0}.{1}:\n'.format(class_name, func_name)
+        if self.allTests[k] is not None and len(self.allTests[k]) > 0:
+          output += '\n'.join(textwrap.wrap(self.allTests[k], 80)) + '\n'
         output += v.split('\n')[-2] + '\n\n'
     else:
       for i in item:
         mod_name, class_name, func_name = i.split('.')
-        output += '{0}.{1}\n\n'.format(class_name, func_name)
+        output += '{0}.{1}\n'.format(class_name, func_name)
+        if self.allTests[i] is not None and len(self.allTests[i]) > 0:
+          output += '\n'.join(textwrap.wrap(self.allTests[i], 80)) + '\n'
     output += ('-' * 80) + '\n'
     return output
 
@@ -115,7 +121,7 @@ class GroupStatistics(object):
   @classmethod
   def get_histogram(cls, instances):
     assert len(instances) > 0
-    dist = {k: 0 for k in instances[0].allTests}
+    dist = {k: 0 for k in instances[0].allTests.keys()}
     for i in instances:
       GroupStatistics.update_count('errors', dist, i)
       GroupStatistics.update_count('failures', dist, i)
@@ -125,7 +131,7 @@ class GroupStatistics(object):
     return dist
 
   @classmethod
-  def plot_error_count_vs_students(cls, instances, filename):
+  def plot_error_type_vs_students(cls, instances, filename):
     assert len(instances) > 0
     bins = cls.get_histogram(instances)
     fig = plt.figure()
@@ -134,24 +140,27 @@ class GroupStatistics(object):
     labels = [x[x.rfind('.')+1:] for x in bins.keys()]
     p.set_xticks(range(len(bins)))
     p.set_xticklabels(labels, rotation=90)
-    p.set_title('Distribution of the number of errors made by the students')
+    p.set_title('Distribution of the various errors made by the students')
     p.set_ylabel('Number of Groups')
     fig.tight_layout()
-    fig.savefig(filename, bbox_inches='tight')
+    fig.savefig(filename)
 
   @classmethod
-  def plot_error_type_vs_students(cls, instances, filename):
+  def plot_error_count_vs_students(cls, instances, filename):
     assert len(instances) > 0
     bins = {i: 0 for i in range(len(instances[0].allTests) + 1)}
     for i in instances:
       bins[i.unsuccessful_count()] += 1
     fig = plt.figure()
     p = fig.add_subplot(111)
-    p.bar(bins.keys(), bins.values())
-    p.set_title('Distribution of the various errors made by the students')
+    p.bar(range(len(bins)), bins.values())
+    labels = bins.keys()
+    p.set_xticks(range(len(bins)))
+    p.set_xticklabels(labels)
+    p.set_title('Distribution of the number of errors made by the students')
     p.set_xlabel('Number of Errors')
     p.set_ylabel('Number of Groups')
-    fig.savefig(filename, bbox_inches='tight')
+    fig.savefig(filename)
 
 
 class GradeFileProcessor(object):
@@ -240,6 +249,8 @@ if __name__ == '__main__':
       args.result_filename)
   
   if args.csv_result_file is not None:
+    if args.csv_result_output_file is None:
+      args.csv_result_output_file = args.csv_result_file
     groups_to_csv(instances, {'get_grade': 'Code', '__str__': 'Add Comments'},
         args.csv_result_file, args.csv_result_output_file,
         {'get_grade' : args.weight_per_test})
