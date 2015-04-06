@@ -9,6 +9,8 @@ import sys
 import textwrap
 import math
 
+OUTCOME_TYPES = ['errors', 'failures', 'skipped', 'successes', 'aborted',
+    'expectedFailures', 'unexpectedSuccesses']
 
 class GroupStatistics(object):
   def __init__(self, group_members, results_dict):
@@ -119,6 +121,37 @@ class GroupStatistics(object):
       for v in item:
         dist[v] += 1
 
+  @staticmethod
+  def get_test_performance(instances, test_identifier):
+    stat_map = dict()
+    for t in OUTCOME_TYPES:
+      stat_map[t] = []
+      for i in instances:
+        if test_identifier in getattr(i, t):
+          stat_map[t].append(i)
+    return stat_map
+
+  @staticmethod
+  def format_test_performance(instances, test_identifier):
+    output = test_identifier + '\n\n'
+    for c, f in GroupStatistics.get_test_performance(instances,
+        test_identifier).iteritems():
+      if len(f) > 0:
+        output += c.upper() + '\n' 
+      for g in f:
+        output += g.format_group() + '\n'
+      if len(f) > 0:
+        output += '\n'
+    return output + ('-' * 80) + '\n'
+
+  @staticmethod
+  def write_test_breakdown(instances, filename):
+    assert len(instances) > 0
+    with open(filename, 'w') as breakdown_file:
+      for t in instances[0].allTests:
+        breakdown_file.write(GroupStatistics.format_test_performance(instances, 
+          t))
+
   @classmethod
   def get_histogram(cls, instances):
     assert len(instances) > 0
@@ -141,7 +174,9 @@ class GroupStatistics(object):
     labels = [x[x.rfind('.')+1:] for x in bins.keys()]
     p.set_xticks(range(len(bins)))
     p.set_xticklabels(labels, rotation=90)
-    p.set_title('Distribution of the various errors made by the students')
+    p.set_ylim(0, len(instances))
+    p.set_title('Distribution of the various errors made by the students ' +
+        '(count: {0})'.format(len(instances)))
     p.set_ylabel('Number of Groups')
     fig.tight_layout()
     fig.savefig(filename)
@@ -237,6 +272,9 @@ if __name__ == '__main__':
       help='The file to store the plot of the number of students for each ' +
       'type of error', default=None)
 
+  parser.add_argument('-b', '--breakdown-by-test', help='The file to store ' +
+      'the breakdown of tests results by test name.', default=None)
+  
   parser.add_argument('-w', '--weight-per-test', help='The weight assigned ' +
       'to each test to compute the grade.', default=1, type=float)
 
@@ -263,5 +301,8 @@ if __name__ == '__main__':
   if args.num_students_by_error_type_plot:
     GroupStatistics.plot_error_type_vs_students(instances,
         args.num_students_by_error_type_plot)
+
+  if args.breakdown_by_test is not None:
+    GroupStatistics.write_test_breakdown(instances, args.breakdown_by_test)
 
 # vim: set ts=2 sw=2 expandtab:

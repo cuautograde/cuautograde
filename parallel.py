@@ -93,7 +93,7 @@ if __name__ == '__main__':
     if os.path.isdir(instance_root):
       test_roots.append(instance_root)
 
-  process_count = 2 * multiprocessing.cpu_count()
+  process_count = multiprocessing.cpu_count()
 
   params = ['python', 'runner.py', args.module, test_roots,
       '-t', str(args.timeout), '-r', args.result_file_path]
