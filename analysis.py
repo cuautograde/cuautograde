@@ -7,6 +7,7 @@ import itertools
 import csv
 import sys
 import textwrap
+import math
 
 
 class GroupStatistics(object):
@@ -39,7 +40,7 @@ class GroupStatistics(object):
     grade = 0
     for test in itertools.chain(self.successes, self.expectedFailures):
       grade += weights.get(test, singular_weight)
-    return grade
+    return int(math.ceil(grade))
 
   @staticmethod
   def get_members_from_dir_name(groupdirname):
