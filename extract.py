@@ -84,7 +84,7 @@ def move(leftpath, rightpath, overwrite=False):
         os.rename(leftpath, rightpath)
     return True
   else:
-    os.rename(leftpath, rightpath)
+    shutil.move(leftpath, rightpath)
     return True
   return False
 
