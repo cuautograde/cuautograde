@@ -21,9 +21,12 @@ console = sys.stdout
 # Protects the output stream
 console_lock = threading.Lock()
 
-def redirect_console():
+def redirect_console(where=None):
   '''Send all prints and error prints to black hole.'''
-  f = open(os.devnull, 'w')
+  if where is None:
+    f = open(os.devnull, 'w')
+  else:
+    f = open(where, 'w')
   sys.stdout = f
   sys.stderr = f
 
@@ -274,19 +277,24 @@ if __name__ == '__main__':
   parser.add_argument('-v', '--verbose', help='Show the result of every test.',
     action='store_true', default=False)
 
+  parser.add_argument('-c', '--redir-console', help='Redirect console to this '+
+    'instead of null device.', default=None)
+
   if len(sys.argv) == 1:
     parser.print_help()
+    sys.stdout.close()
     exit(-2)
   
   args = parser.parse_args()
  
-  redirect_console()
+  redirect_console(args.redir_console)
     
   # First check if the result file exists
   result_file_path = os.path.join(args.test_root, args.result_file_path)
   basename = os.path.basename(os.path.abspath(args.test_root))
   if os.path.isfile(result_file_path) and not args.overwrite_existing_results:
     displayln('Results already exist for {0}'.format(basename))
+    sys.stdout.close()
     exit(1)
 
   # A hack to make symlinks work
@@ -312,8 +320,11 @@ if __name__ == '__main__':
       len(summary['skipped']), len(summary['allTests'])))
     
     if len(summary['aborted']) > 0:
+      sys.stdout.close()
       exit(2)
+    sys.stdout.close()
   else:
+    sys.stdout.close()
     raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
 
 # vim: set ts=2 sw=2 expandtab:
