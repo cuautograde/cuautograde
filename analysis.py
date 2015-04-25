@@ -251,6 +251,8 @@ class GradeFileProcessor(object):
             else:
               curr = float(curr)
           if v < curr:
+            print 'WARN: The score for {0} was {1} but has decreased to {2}'.\
+              format(rec_id, curr, v)
             v = curr
         self.contents_list[row_index][self.headers_index_map[k]] = v
   
