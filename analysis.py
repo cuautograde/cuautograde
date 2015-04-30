@@ -14,7 +14,6 @@ import re
 OUTCOME_TYPES = ['errors', 'failures', 'skipped', 'successes', 'aborted',
     'expectedFailures', 'unexpectedSuccesses']
 
-
 class GroupStatistics(object):
   '''Represents the computed statistics for a single group of one or more
   students being tested.'''
@@ -163,11 +162,16 @@ class StatisticsSet(object):
   def get_histogram(self):
     '''Get a histogram of test outcomes by type.'''
     assert len(self.instances) > 0
-    dist = {k: 0 for k in self.instances[0].allTests.keys()}
+    # Dictionary that maps each test to another dictionary that keeps a out
+    # of the observed number of each of the possible outcomes for that test
+    dist = {k: dict() for k in self.instances[0].allTests.keys()}
     for i in self.instances:
       for cat_name in OUTCOME_TYPES:
-        for k in getattr(i, cat_name):
-          dist[k] += 1
+        for t in dist.keys():
+          if t in getattr(i, cat_name):
+            if not cat_name in dist[t]:
+              dist[t][cat_name] = 0
+            dist[t][cat_name] += 1
     return dist
 
   def plot_error_type_vs_students(self, filename):
@@ -175,8 +179,10 @@ class StatisticsSet(object):
     bins = self.get_histogram()
     fig = plt.figure()
     p = fig.add_subplot(111)
-    p.bar(range(len(bins)), bins.values())
-    labels = [x[x.rfind('.')+1:] for x in bins.keys()]
+    tests = sorted(bins.keys())
+    for outcome in OUTCOME_TYPES:
+      p.bar(range(len(bins)), [bins[t][outcome] for t in tests])
+    labels = [x[x.rfind('.')+1:] for x in tests]
     p.set_xticks(range(len(bins)))
     p.set_xticklabels(labels, rotation=90)
     p.set_ylim(0, len(self.instances))
