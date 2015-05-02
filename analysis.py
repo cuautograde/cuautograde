@@ -209,7 +209,7 @@ class StatisticsSet(object):
     fig.savefig(filename)
 
   def fill_csv(self, mapping, csv_file, output_file, weights_map, offset,
-      monotonic_updates=True, verbose=False):
+      additionalSources=[], verbose=False):
     p = GradeFileProcessor(csv_file, output_file)
     for g in self.instances:
       subs_values = dict()
@@ -219,7 +219,8 @@ class StatisticsSet(object):
         else:
           subs_values[rec_name] = getattr(g, func_name)(weights_map[func_name],
             offset)
-      p.update_records(g.members, subs_values)
+      p.update_records(g.members, subs_values,
+          [GradeFileProcessor(x) for x in additionalSources])
     p.dump(output_file)
 
 
@@ -243,23 +244,29 @@ class GradeFileProcessor(object):
         if diff > 0:
           self.contents_list[i] += [''] * diff
   
-  def update_records(self, record_ids, subs_values, monotonic_updates=True):
+  def update_records(self, record_ids, subs_values, additionalSources=[]):
     if not hasattr(record_ids, '__iter__'):
       record_ids = [record_ids]
     for rec_id in record_ids:
       row_index = self.contents_index_map[rec_id]
       for k, v in subs_values.iteritems():
-        if monotonic_updates and isinstance(v, numbers.Number):
-          curr = self.contents_list[row_index][self.headers_index_map[k]]
-          if isinstance(curr, str):
-            if len(curr) == 0:
-              curr = 0
-            else:
-              curr = float(curr)
-          if v < curr:
+        if isinstance(v, numbers.Number):
+          maxVal = []
+          trueVal = v
+          for s in additionalSources:
+            curr = self.contents_list[row_index][self.headers_index_map[k]]
+            if isinstance(curr, str):
+              if len(curr) == 0:
+                curr = 0
+              else:
+                curr = float(curr)
+            if maxVal < curr:
+              maxVal = curr
+          if v < maxVal:
+            v = curr 
+          if trueVal != v:
             print 'WARN: The score for {0} was {1} but has decreased to {2}'.\
-              format(rec_id, curr, v)
-            v = curr
+                format(rec_id, curr, v)
         self.contents_list[row_index][self.headers_index_map[k]] = v
   
   def dump(self, filename):
@@ -279,8 +286,9 @@ if __name__ == '__main__':
   parser.add_argument('-f', '--result-filename', help='The name of the ' +
       'result file in the student\'s result directory', default='results.json')
 
-  parser.add_argument('-c', '--csv-result-file', help='The file downloaded ' +
-      'from CMS for adding grades.', default=None)
+  parser.add_argument('-c', '--csv-result-file', help='Zero or more template ' +
+      'files downloaded from CMS for adding grades. The max of the grades ' +
+      'will be written to the output CSV file specified.', nargs='*')
 
   parser.add_argument('-o', '--csv-result-output-file', help='The CSV file ' +
       'to write the output to. Same ad csv-result-file if not specified.',
@@ -321,10 +329,11 @@ if __name__ == '__main__':
   
   if args.csv_result_file is not None:
     if args.csv_result_output_file is None:
-      args.csv_result_output_file = args.csv_result_file
+      args.csv_result_output_file = args.csv_result_file[0]
     stat.fill_csv({'get_grade': 'Code', '__str__': 'Add Comments'},
         args.csv_result_file, args.csv_result_output_file,
-        {'get_grade' : args.weight_per_test}, args.offset_points, args.verbose)
+        {'get_grade' : args.weight_per_test}, args.offset_points,
+        args.csv_result_file, args.verbose)
   
   if args.num_students_vs_num_errors_plot is not None:
     stat.plot_error_count_vs_students(args.num_students_vs_num_errors_plot)
