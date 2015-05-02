@@ -9,10 +9,15 @@ import sys
 import textwrap
 import math
 import re
+from matplotlib.font_manager import FontProperties
+import matplotlib.ticker as ticker  
 
-
-OUTCOME_TYPES = ['errors', 'failures', 'skipped', 'successes', 'aborted',
+OUTCOME_TYPES = ['successes', 'errors', 'failures', 'aborted', 'skipped',
     'expectedFailures', 'unexpectedSuccesses']
+
+OUTCOME_COLORS = {'errors': 'm', 'failures': 'r', 'skipped': 'c',
+    'successes': 'g', 'aborted': 'y', 'expectedFailures': 'b',
+    'unexpectedSuccesses': 'k'}
 
 class GroupStatistics(object):
   '''Represents the computed statistics for a single group of one or more
@@ -162,9 +167,11 @@ class StatisticsSet(object):
   def get_histogram(self):
     '''Get a histogram of test outcomes by type.'''
     assert len(self.instances) > 0
+    template = {outcome: 0 for outcome in OUTCOME_TYPES}
     # Dictionary that maps each test to another dictionary that keeps a out
     # of the observed number of each of the possible outcomes for that test
-    dist = {k: dict() for k in self.instances[0].allTests.keys()}
+    dist = {k: dict(template) for k in self.instances[0].allTests.keys()}
+
     for i in self.instances:
       for cat_name in OUTCOME_TYPES:
         for t in dist.keys():
@@ -180,11 +187,27 @@ class StatisticsSet(object):
     fig = plt.figure()
     p = fig.add_subplot(111)
     tests = sorted(bins.keys())
+    bottoms = [0] * len(tests)
+    barPlots = []
     for outcome in OUTCOME_TYPES:
-      p.bar(range(len(bins)), [bins[t][outcome] for t in tests])
+      results = [bins[t][outcome] for t in tests]
+      if not any(results):
+        continue
+      a = p.bar(range(len(bins)), results, bottom=bottoms,
+          color=OUTCOME_COLORS[outcome])
+      bottoms = [bottoms[i] + results[i] for i in range(len(tests))]
+      barPlots.append(a)
+    fontP = FontProperties()
+    fontP.set_size('x-small')
+    p.legend(barPlots, OUTCOME_TYPES, prop=fontP, loc='lower right')
+    ax = p.get_axes()
+    ax.xaxis.set_major_formatter(ticker.NullFormatter())
+    ax.xaxis.set_minor_locator(ticker.FixedLocator(
+      [0.3 + i for i in range(len(tests))]))
     labels = [x[x.rfind('.')+1:] for x in tests]
-    p.set_xticks(range(len(bins)))
-    p.set_xticklabels(labels, rotation=90)
+    ax.xaxis.set_minor_formatter(ticker.FixedFormatter(labels))
+    for t in ax.get_xminorticklabels():
+      t.set_rotation(90)
     p.set_ylim(0, len(self.instances))
     p.set_title('Distribution of the various errors made by the students ' +
         '(count: {0})'.format(len(self.instances)))
