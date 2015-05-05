@@ -46,6 +46,14 @@ class GroupStatistics(object):
       return 'Group of ' + ', '.join(self.members[:-1]) + ' and ' + \
         str(self.members[-1])
 
+  def get_dir_name(self):
+    '''Returns the name of the group folder as CMS would produce.'''
+    assert len(self.members <= 2)
+    if len(self.members) == 1:
+      return self.members[0]
+    else:
+      return 'group_of_{}_{}'.format(self.members[0], self.members[1])
+
   def get_grade(self, weights, offset):
     '''Return the numerical grade of the group. The weights parameter, if
     specified, must either be a single number or a dictionary of tests mapping
@@ -77,7 +85,7 @@ class GroupStatistics(object):
     item = getattr(self, name)
     if item is None or len(item) == 0:
       return ''
-    output = name.upper() + '\n\n'
+    output = '{} ({}/{})\n\n'.format(name.upper(), len(item), self.test_count())
     if isinstance(item, dict):
       for k, v in item.iteritems():
         mod_name, class_name, func_name = k.split('.')
@@ -98,6 +106,7 @@ class GroupStatistics(object):
     '''Return a formatted string containing a prettified name of the group
     along with a summary of the test outcomes.'''
     output = self.format_group() + '\n\n'
+    output += self.pretty_print_category('successes')
     output += self.pretty_print_category('errors')
     output += self.pretty_print_category('failures')
     output += self.pretty_print_category('aborted')
@@ -163,6 +172,15 @@ class StatisticsSet(object):
     with open(filename, 'w') as breakdown_file:
       for t in self.instances[0].allTests:
         breakdown_file.write(self.format_test_performance(t))
+
+  def write_formatted_results(self, root_dir, result_file_path):
+    '''Write the results of the test run to a human readable text file,
+    relative to the root directory.'''
+    for i in self.instances:
+      path = os.path.join(root_dir, i.get_dir_name(), result_file_path) 
+      assert os.path.isfile(path)
+      with open(path) as f:
+        f.write(i.__str__)
 
   def get_histogram(self):
     '''Get a histogram of test outcomes by type.'''
@@ -232,7 +250,7 @@ class StatisticsSet(object):
     fig.savefig(filename)
 
   def fill_csv(self, mapping, csv_file, output_file, weights_map, offset,
-      additionalSources=[], verbose=False):
+      additionalSources, verbose=False):
     p = GradeFileProcessor(csv_file, output_file)
     for g in self.instances:
       subs_values = dict()
@@ -327,6 +345,10 @@ if __name__ == '__main__':
 
   parser.add_argument('-b', '--breakdown-by-test', help='The file to store ' +
       'the breakdown of tests results by test name.', default=None)
+
+  parser.add_argument('-p', '--human-readable-summary', help='The file to ' +
+      'store a human-readable summary of tests results by in the students\' ' +
+      'results folder.', default=None)
   
   parser.add_argument('-w', '--weight-per-test', help='The weight assigned ' +
       'to each test to compute the grade.', default=1, type=float)
@@ -356,7 +378,11 @@ if __name__ == '__main__':
     stat.fill_csv({'get_grade': 'Code', '__str__': 'Add Comments'},
         args.csv_result_file, args.csv_result_output_file,
         {'get_grade' : args.weight_per_test}, args.offset_points,
-        args.csv_result_file, args.verbose)
+        [args.csv_result_file], args.verbose)
+  
+  if args.human_readable_summary is not None:
+    stat.write_formatted_results(args.test_results_directory,
+        args.human_readable_summary)
   
   if args.num_students_vs_num_errors_plot is not None:
     stat.plot_error_count_vs_students(args.num_students_vs_num_errors_plot)
