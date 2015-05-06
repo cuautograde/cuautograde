@@ -376,9 +376,9 @@ if __name__ == '__main__':
     if args.csv_result_output_file is None:
       args.csv_result_output_file = args.csv_result_file[0]
     stat.fill_csv({'get_grade': 'Code', '__str__': 'Add Comments'},
-        args.csv_result_file, args.csv_result_output_file,
+        args.csv_result_file[0], args.csv_result_output_file,
         {'get_grade' : args.weight_per_test}, args.offset_points,
-        [args.csv_result_file], args.verbose)
+        args.csv_result_file, args.verbose)
   
   if args.human_readable_summary is not None:
     stat.write_formatted_results(args.test_results_directory,
