@@ -179,7 +179,7 @@ class StatisticsSet(object):
     for i in self.instances:
       path = os.path.join(root_dir, i.get_dir_name(), result_file_path) 
       with open(path, 'w') as f:
-        f.write(i.__str__)
+        f.write(i.__str__())
 
   def get_histogram(self):
     '''Get a histogram of test outcomes by type.'''
