@@ -48,7 +48,7 @@ class GroupStatistics(object):
 
   def get_dir_name(self):
     '''Returns the name of the group folder as CMS would produce.'''
-    assert len(self.members <= 2)
+    assert len(self.members) <= 2
     if len(self.members) == 1:
       return self.members[0]
     else:
