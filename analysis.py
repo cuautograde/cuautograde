@@ -178,7 +178,7 @@ class StatisticsSet(object):
     relative to the root directory.'''
     for i in self.instances:
       path = os.path.join(root_dir, i.get_dir_name(), result_file_path) 
-      with open(path) as f:
+      with open(path, 'w') as f:
         f.write(i.__str__)
 
   def get_histogram(self):
