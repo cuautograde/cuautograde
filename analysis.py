@@ -178,7 +178,6 @@ class StatisticsSet(object):
     relative to the root directory.'''
     for i in self.instances:
       path = os.path.join(root_dir, i.get_dir_name(), result_file_path) 
-      assert os.path.isfile(path)
       with open(path) as f:
         f.write(i.__str__)
 
