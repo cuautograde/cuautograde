@@ -291,22 +291,18 @@ class GradeFileProcessor(object):
       row_index = self.contents_index_map[rec_id]
       for k, v in subs_values.iteritems():
         if isinstance(v, numbers.Number):
-          maxVal = []
-          trueVal = v
+          maxVal = float(self.contents_list[row_index][ \
+            self.headers_index_map[k]])
+          trueVal = float(v)
           for s in additionalSources:
-            curr = self.contents_list[row_index][self.headers_index_map[k]]
-            if isinstance(curr, str):
-              if len(curr) == 0:
-                curr = 0
-              else:
-                curr = float(curr)
+            curr = float(s.contents_list[row_index][s.headers_index_map[k]])
             if maxVal < curr:
               maxVal = curr
           if v < maxVal:
-            v = curr 
-          if trueVal != v:
+            v = curr
+          if abs(trueVal - v) > 1e-5:
             print 'WARN: The score for {0} was {1} but has decreased to {2}'.\
-                format(rec_id, curr, v)
+                format(rec_id, v, trueVal)
         self.contents_list[row_index][self.headers_index_map[k]] = v
   
   def dump(self, filename):

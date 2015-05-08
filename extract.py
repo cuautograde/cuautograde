@@ -89,8 +89,8 @@ def move(leftpath, rightpath, overwrite=False):
   return False
 
 
-def process_submission(submission, destination, clean_empty, overwrite=False,
-    file_pattern='*.py'):
+def process_submission(submission, destination, clean_empty, overwrite,
+    file_pattern):
   '''Extract and cleanup a standard submission.'''
   extract_dir = tempfile.mkdtemp()
   extracted_root = os.path.join(extract_dir, SUBMISSION_DIR_NAME)
@@ -125,6 +125,6 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
   process_submission(args.submission, args.destination,
-      args.clean_empty_directories)
+      args.clean_empty_directories, False, '*')
 
 # vim: set ts=2 sw=2 expandtab:
