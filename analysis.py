@@ -319,43 +319,44 @@ if __name__ == '__main__':
   parser.add_argument('test_results_directory', help='The directory ' +
       'containing all the students test results.')
 
-  parser.add_argument('-f', '--result-filename', help='The name of the ' +
+  parser.add_argument('-f', '--result-filename', help='The name of the JSON' +
       'result file in the student\'s result directory', default='results.json')
 
-  parser.add_argument('-c', '--csv-result-file', help='Zero or more template ' +
+  parser.add_argument('-c', '--csv-result-file', help='One or more template ' +
       'files downloaded from CMS for adding grades. The max of the grades ' +
-      'will be written to the output CSV file specified.', nargs='*')
+      'will be written to the output CSV file specified.', nargs='+')
 
   parser.add_argument('-o', '--csv-result-output-file', help='The CSV file ' +
-      'to write the output to. Same ad csv-result-file if not specified.',
+      'to write the output to. Same as csv-result-file if not specified.',
       default=None)
 
-  parser.add_argument('-s', '--num-students-vs-num-errors-plot',
-      help='The file to store the plot of number of students ' +
-      'versus the number of errors.', default=None)
+  parser.add_argument('-s', '--num-students-vs-num-unsuccessful-plot',
+      help='The file to store the plot of number of students versus the ' +
+      'number of unsuccessful outcomes.', default=None)
 
-  parser.add_argument('-e', '--num-students-by-error-type-plot',
+  parser.add_argument('-e', '--num-students-by-unsuccess-type-plot',
       help='The file to store the plot of the number of students for each ' +
-      'type of error', default=None)
+      'type of unsuccessful outcome.', default=None)
 
   parser.add_argument('-b', '--breakdown-by-test', help='The file to store ' +
       'the breakdown of tests results by test name.', default=None)
 
   parser.add_argument('-p', '--human-readable-summary', help='The file to ' +
-      'store a human-readable summary of tests results by in the students\' ' +
-      'results folder.', default=None)
+      'store a human-readable summary of tests results for each group in the ' +
+      'in the students\' results folder.', default=None)
   
   parser.add_argument('-w', '--weight-per-test', help='The weight assigned ' +
-      'to each test to compute the grade.', default=1, type=float)
+      'to each test to compute the grade. Used by the CSV generator.',
+      default=1, type=float)
 
   parser.add_argument('-q', '--offset-points', help='Points added to a total ' +
-      'grade. Must be positive right now.', default=0, type=float)
+      'grade. Must be positive. Used by CSV generator', default=0, type=float)
   
-  parser.add_argument('-v', '--verbose', help='Points added to a total ' +
-      'grade. Must be positive right now.', default=False, action='store_true')
+  parser.add_argument('-v', '--verbose', help='Prints out a description of ' +
+      'unusual outcomes as they occur.', default=False, action='store_true')
   
-  parser.add_argument('-m', '--no-max', help='Disable the feature that ' +
-      'grades to only increase and never decrease.', default=False,
+  parser.add_argument('-m', '--no-max', help='Disable the feature that forces' +
+      'grades to only increase (i.e. never decrease).', default=False,
       action='store_true')
   
   if len(sys.argv) == 1:
