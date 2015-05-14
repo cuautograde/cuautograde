@@ -253,9 +253,12 @@ class TimeoutTestRunner(object):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='This script is used to run ' +
-    'a single tests at a time. The tests must be designed to follow the ' +
-    'pattern described in the README.md',
+  parser = argparse.ArgumentParser(description='This module is used to run ' +
+    'tests on a single instance. The tests must be contained in a single ' +
+    'module, and must use the Python\'s unittest framework. This module  ' +
+    'runs the tests in separate threads (not processes) and optionally ' +
+    'enforces timeouts on the tests. The results it generates are stored ' +
+    'in a JSON file relative to the student\'s code directory.',
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
   parser.add_argument('module', help='The module containing tests to be run.')
@@ -288,6 +291,11 @@ if __name__ == '__main__':
   args = parser.parse_args()
  
   redirect_console(args.redir_console)
+
+  # Check if the module name was accidentally specified with .py extension
+  # and if so, correct it
+  if args.module.endswith('.py'):
+    args.module = args.module[:-3]
     
   # First check if the result file exists
   result_file_path = os.path.join(args.test_root, args.result_file_path)
