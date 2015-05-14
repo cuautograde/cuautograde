@@ -380,11 +380,12 @@ if __name__ == '__main__':
     stat.write_formatted_results(args.test_results_directory,
         args.human_readable_summary)
   
-  if args.num_students_vs_num_errors_plot is not None:
-    stat.plot_error_count_vs_students(args.num_students_vs_num_errors_plot)
+  if args.num_students_vs_num_unsuccessful_plot is not None:
+    stat.plot_error_count_vs_students(
+        args.num_students_vs_num_unsuccessful_plot)
   
-  if args.num_students_by_error_type_plot:
-    stat.plot_error_type_vs_students(args.num_students_by_error_type_plot)
+  if args.num_students_by_unsuccess_type_plot:
+    stat.plot_error_type_vs_students(args.num_students_by_unsuccess_type_plot)
 
   if args.breakdown_by_test is not None:
     stat.write_test_breakdown(args.breakdown_by_test)
