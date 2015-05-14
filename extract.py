@@ -57,13 +57,13 @@ def extract(root, destination=None):
     pass
 
 
-def collapse_and_filter_directory(root, fnmatch_pattern):
-  '''Collect all files that match 'fnmatch_pattern' into root, and delete
-  everything else.'''
+def collapse_and_filter_directory(root, fnmatch_patterns):
+  '''Collect all files that match one of the 'fnmatch_patterns' into root, and
+  delete everything else.'''
   temp_dir = tempfile.mkdtemp()
   for local_root, _, files in os.walk(root):
     for f in files:
-      if fnmatch.fnmatch(f, fnmatch_pattern):
+      if any(map(lambda p: fnmatch.fnmatch(f, p), fnmatch_patterns)):
         path = os.path.join(local_root, f)
         shutil.copyfile(path, os.path.join(temp_dir, f))
   shutil.rmtree(root)
@@ -123,8 +123,12 @@ if __name__ == '__main__':
       'is set, this script will attempt to remove all the empty directories ' +
       'from the extracted tree.', action='store_true', default=False)
 
+  parser.add_argument('-l', '--list-of-files-to-collect', help='The list of ' +
+      'files to collect from the submissions.', nargs='+', default=['*'])
+
   args = parser.parse_args()
+
   process_submission(args.submission, args.destination,
-      args.clean_empty_directories, False, '*')
+      args.clean_empty_directories, False, args.list_of_files_to_collect)
 
 # vim: set ts=2 sw=2 expandtab:
