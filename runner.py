@@ -272,6 +272,7 @@ class TimeoutTestRunner(object):
       raise Exception('Unknow object encountered in the TestSuite!')
 
   def run(self, test_entity, verbose=False):
+    '''Executes the given test suite and returns the collected results.'''
     result = SynchronizedTestResult()
     TimeoutTestRunner.process_test_cases(test_entity, 'setUpClass')
     tests = list(list_of_tests_gen(test_entity))
@@ -317,6 +318,7 @@ if __name__ == '__main__':
   parser.add_argument('-c', '--redir-console', help='Redirect console to this '+
     'instead of null device.', default=None)
 
+  # if the user runs the module without any arguments then display the help menu
   if len(sys.argv) == 1:
     parser.print_help()
     sys.stdout.close()
@@ -324,6 +326,7 @@ if __name__ == '__main__':
   
   args = parser.parse_args()
  
+  # Redirect console only once the arguments have been parsed
   redirect_console(args.redir_console)
 
   # Check if the module name was accidentally specified with .py extension
@@ -339,34 +342,41 @@ if __name__ == '__main__':
     sys.stdout.close()
     exit(1)
 
-  # A hack to make symlinks work
+  # Typically, this module will be run in the same directory so we need to
+  # make the symlinks in those directory accessible by adding the current
+  # working directory to the path
   sys.path.append(os.getcwd())
-  if os.path.isdir(args.test_root):
-    sys.path.append(args.test_root)
-    m = __import__(args.module)
-    tests = unittest.defaultTestLoader.loadTestsFromModule(m)
-    result = TimeoutTestRunner(args.timeout).run(tests, args.verbose)
-    summary = result.summarize(tests)
 
-    with open(result_file_path, 'w') as result_file:
-      json.dump(summary, result_file, indent=True)
-
-
-    # Display a summary of the students' results to let the test runner know
-    # the test runner is making progress
-    # pylint: disable=E1601
-    displayln(('{0}: Successful={1}/{6}, Errors={2}/{6}, Failed={3}/{6}, ' + 
-      'Aborted={4}/{6}, Skipped={5}/{6}').format(basename,
-      len(summary['successes']), len(summary['errors']),
-      len(summary['failures']), len(summary['aborted']),
-      len(summary['skipped']), len(summary['allTests'])))
-    
-    if len(summary['aborted']) > 0:
-      sys.stdout.close()
-      exit(2)
-    sys.stdout.close()
-  else:
+  # Check if the specified test root is valid
+  if not os.path.isdir(args.test_root):
     sys.stdout.close()
     raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
+
+  # Append the test root to the python path so that the test module can be
+  # imported directly
+  sys.path.append(args.test_root)
+
+  # Import the test module and run the tests contained in it
+  m = __import__(args.module)
+  tests = unittest.defaultTestLoader.loadTestsFromModule(m)
+  result = TimeoutTestRunner(args.timeout).run(tests, args.verbose)
+  summary = result.summarize(tests)
+  
+  # Write the test results as a JSON file
+  with open(result_file_path, 'w') as result_file:
+    json.dump(summary, result_file, indent=True)
+
+  # Display a summary of the students' results to let the test runner know
+  # the test runner is making progress
+  displayln(('{0}: Successful={1}/{6}, Errors={2}/{6}, Failed={3}/{6}, ' + 
+    'Aborted={4}/{6}, Skipped={5}/{6}').format(basename,
+    len(summary['successes']), len(summary['errors']),
+    len(summary['failures']), len(summary['aborted']),
+    len(summary['skipped']), len(summary['allTests'])))
+    
+  if len(summary['aborted']) > 0:
+    sys.stdout.close()
+    exit(2)
+  sys.stdout.close()
 
 # vim: set ts=2 sw=2 expandtab:
