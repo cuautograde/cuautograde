@@ -21,8 +21,10 @@ console = sys.stdout
 # Protects the output stream
 console_lock = threading.Lock()
 
+
 def redirect_console(where=None):
-  '''Send all prints and error prints to black hole.'''
+  '''Send all prints and error prints to the specified stream or to
+  the platform's equivalent of the Unix /dev/null.'''
   if where is None:
     f = open(os.devnull, 'w')
   else:
@@ -32,16 +34,18 @@ def redirect_console(where=None):
 
 
 def displayln(s):
-  '''Write the string 's' to the original console output stream.'''
+  '''Write the specified string to the original console output stream.'''
   with console_lock:
     console.write('{0}\n'.format(s))
 
 
 def iter_not_string(i):
+  '''Return True if the specified object is iterable but is not a string.'''
   return hasattr(i, '__iter__')
 
 
 def doc_for(test):
+  '''Return the docstring for a given test identifier.'''
   mod_name, class_name, func_name = test.id().split('.')
   return getattr(test, func_name).__doc__
 
@@ -58,7 +62,16 @@ def list_of_tests_gen(s):
 
 class InterruptibleThreadGroup(threading.Thread):
   '''This class allows a user to run a list of tasks in different threads,
-  and respond to requests for stoping, such as due to timeouts.'''
+  and respond to requests for stoping, such as due to timeouts.
+  
+  Note that this class intentionally uses the Python threading module
+  instead of the multiprocessing module. The typical use-case of this
+  class is to provide a way to execute tasks in a relatively
+  starvation-proof manner, that is, to allow all rest of the tasks to 
+  make progress even if a few of the tasks are not making progress. It
+  specifically does not provide any guarentees as to whether the tasks will
+  actually be executed in parallel (which, in case if CPython, is well-known to
+  not be true).'''
 
   def __init__(self, tasks, args, finalizers=None):
     ''''tasks' is a list of single parameter functions corresponding to a
@@ -67,6 +80,8 @@ class InterruptibleThreadGroup(threading.Thread):
     those expected by the respective task. 'finalizers' are single parameter
     functions called after the task, and receives the same parameter as the
     corresponding task.'''
+
+    # The thread group is itself managed by a thread
     threading.Thread.__init__(self, name='Controller',
         target=self.start_and_wait)
 
@@ -88,18 +103,27 @@ class InterruptibleThreadGroup(threading.Thread):
     if finalizers is None:
       finalizers = [None] * len(tasks)
 
+    assert len(tasks) == len(arg), 'Length of \'tasks\' must be the same as ' +
+      'length of \'args\''
+      
+    assert len(tasks) == len(finalizers), 'Length of \'tasks\' must be the ' +
+      'same as length of \'finalizers\''
+
     for task, arg, finalizer in zip (tasks, args, finalizers):
+      # Define what each thread in the thread group is supposed to do
       def unit_work(param):
-        task(param)
-        if finalizer is not None:
+        task(param) # First perform the task
+        if finalizer is not None: # Then if finalizer is not None, execute it
           finalizer(param)
-        with self.running_status_lock:
+        with self.running_status_lock: # Finally update the active thread count
           self.tasks_running_count -= 1
-          if self.tasks_running_count == 0:
+          if self.tasks_running_count == 0: # If the count goes to zero, signal
             self.is_running = False
             self.running_status_changed.notify_all()
 
       thread = threading.Thread(target=unit_work, args=(arg,))
+      # The individual tasks are daemon, so they terminate as soon the the
+      # group controller terminates
       thread.daemon = True
       self.threads.append(thread)
 
@@ -121,18 +145,21 @@ class InterruptibleThreadGroup(threading.Thread):
       self.running_status_changed.notify_all()
 
   def set_timeout(self, timeout_in_seconds):
+    '''Set a timeout monitor that waits for the specified number of seconds
+    before signalling the thread group controller to terminate.'''
+    # Define the task of the timeout monitor
     def task():
       start_time = time.time()
       while time.time() - start_time < timeout_in_seconds:
         time.sleep(timeout_in_seconds - (time.time() - start_time))
       self.stop_all_tasks()
     thread = threading.Thread(target=task)
-    thread.daemon = True
+    thread.daemon = True # Daemon so that it dies when the tasks threads die
     thread.start()
 
   @classmethod
   def run_tasks_until_timeout(cls, tasks, args, finalizers, timeout):
-    '''This class takes in a list of tasks and runs them up to timeout
+    '''This function takes in a list of tasks and runs them up to timeout
     seconds.'''
     tg = cls(tasks, args, finalizers)
     tg.start()
@@ -141,6 +168,9 @@ class InterruptibleThreadGroup(threading.Thread):
 
 
 class SynchronizedTestResult(unittest.TestResult):
+  '''A simple test result aggregator that build on top of unittest.TestResult
+  to account for concurrent updates.'''
+
   def __init__(self):
     unittest.TestResult.__init__(self)
     self.lock = threading.Lock()
@@ -219,13 +249,17 @@ class SynchronizedTestResult(unittest.TestResult):
           
 
 class TimeoutTestRunner(object):
+  '''A unit test runner with support for timeouts built on top of the
+  InterruptibleThreadGroup.'''
+
   def __init__(self, timeout):
     self.timeout = timeout
 
   @staticmethod
   def process_test_cases(entity, func_name, already_processed=set()):
-    '''Runs the specific function of every TestCase object encountered,
-    recusively starting at root.'''
+    '''Runs the specified class function of the TestCase object encountered,
+    recusively starting at root, ensuring that each class is processed exactly
+    once.'''
     if isinstance(entity, unittest.TestSuite):
       for t in entity:
         if isinstance(t, unittest.TestCase):
