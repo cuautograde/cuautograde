@@ -1,16 +1,10 @@
 *.pyc
 # Ignore symlinked auto-grader files
-.analysis.py.swp
-.control.py.swp
-.executor.py.swp
-.extract.py.swp
 .git
 .gitignore
-.testutils.py.swp
 analysis.py
-control.py
-executor.py
 extract.py
 LICENSE
 README.md
-testutils.py
+*.swp
+venv
