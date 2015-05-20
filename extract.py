@@ -1,4 +1,3 @@
-#pylint: disable-alnt: disable-all
 import os
 import argparse
 import zipfile
@@ -22,26 +21,27 @@ def clean_empty_directories(root):
     os.rmdir(root)
 
 
-def extract_zip(filepath, destination=None):
+def extract_zip(filepath, destination=None, delete_source_file=False):
   '''Extract the specified zip file in either the 'destination' directory, if
   specified, or in the parent directory of the zip file. Delete the zip file
-  after the contents have been extracted.'''
+  after the contents have been extracted, if specified.'''
   with zipfile.ZipFile(filepath) as source_zip:
     parent_folder = os.path.dirname(os.path.abspath(filepath))
     destination = parent_folder if destination == None else destination
     source_zip.extractall(destination)
-    os.remove(filepath)
+    if delete_source_file:
+      os.remove(filepath)
 
 
 def walk_and_extract_archives(root):
   '''Walk through the tree at 'root' once, extracting all the zip files
-  so encountered in their parents' directory.'''
+  so encountered in their parents' directory. Return the number of archives
+  extracted in this iteration.'''
   archive_count = 0
-  for root, _, files in os.walk(root):
+  for local_root, _, files in os.walk(root):
     for f in files:
-      path = os.path.join(root, f)
-      if path.endswith('.zip'):
-        extract_zip(path)
+      if f.endswith('.zip'):
+        extract_zip(os.path.join(local_root, f), None, True)
         archive_count += 1
   return archive_count
 
