@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import argparse
 import multiprocessing
@@ -8,8 +9,21 @@ import unittest
 import traceback
 import sys
 
+import process_isolation
+
 def iter_not_string(i):
   return hasattr(i, '__iter__')
+
+def run_jailed_module(root, module):
+  context = process_isolation.default_context()
+  context.ensure_started()
+  try:
+    context.client.call(os.chroot, root)
+  except OSError:
+    print('This script must br run with superuser priviledges.')
+
+  runner = context.load_module('runner')
+  runner.process_one_submission(module, '/', overwrite_existing_results=True)
 
 
 def distribute_system_command(nprocesses, timeout, *cmds):
@@ -67,7 +81,7 @@ if __name__ == '__main__':
     'tested.')
 
   parser.add_argument('-r', '--result-file-path', help='The path to the file, '+
-    'relative to the directory containing the test modules, to store the ' + 
+    'relative to the directory containing the test modules, to store the ' +
     'results as JSON objects.', default='results.json')
 
   parser.add_argument('-t', '--timeout', help='The max number of seconds a ' +
@@ -85,7 +99,7 @@ if __name__ == '__main__':
     exit(-2)
 
   args = parser.parse_args()
-   
+
   test_roots = []
   result_files = []
   for group in os.listdir(args.batch_test_root):
@@ -94,6 +108,8 @@ if __name__ == '__main__':
       test_roots.append(instance_root)
 
   process_count = multiprocessing.cpu_count()
+
+
 
   params = ['python', 'runner.py', args.module, test_roots,
       '-t', str(args.timeout), '-r', args.result_file_path]
