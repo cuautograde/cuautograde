@@ -1,16 +1,22 @@
-import os
+#!/usr/bin/env python
+
 import argparse
-import zipfile
-import tempfile
-import shutil
 import fnmatch
+import os
+import shutil
+import tempfile
+import zipfile
 
 
 # The conventional name of the folder within the CMS' submission.zip
 SUBMISSION_DIR_NAME = 'Submissions'
 
 def clean_empty_directories(root):
-  '''Recursively delete empty directories starting at the 'root'.'''
+  '''
+  Recursively delete empty directories starting at the 'root'. This function
+  does a depth first traversal so empty folders within folders are first deleted
+  causing some directories to become empty, after which the parents are deleted.
+  '''
   if os.path.isfile(root):
     return
   for item in os.listdir(root):
@@ -22,9 +28,11 @@ def clean_empty_directories(root):
 
 
 def extract_zip(filepath, destination=None, delete_source_file=False):
-  '''Extract the specified zip file in either the 'destination' directory, if
+  '''
+  Extract the specified zip file in either the 'destination' directory, if
   specified, or in the parent directory of the zip file. Delete the zip file
-  after the contents have been extracted, if specified.'''
+  after the contents have been extracted, if specified.
+  '''
   with zipfile.ZipFile(filepath) as source_zip:
     parent_folder = os.path.dirname(os.path.abspath(filepath))
     destination = parent_folder if destination == None else destination
@@ -34,9 +42,11 @@ def extract_zip(filepath, destination=None, delete_source_file=False):
 
 
 def walk_and_extract_archives(root):
-  '''Walk through the tree at 'root' once, extracting all the zip files
-  so encountered in their parents' directory. Return the number of archives
-  extracted in this iteration.'''
+  '''
+  Walk through the tree at 'root' once, extracting all the zip files so
+  encountered in their parents' directory. Return the number of archives
+  extracted in this iteration.
+  '''
   archive_count = 0
   for local_root, _, files in os.walk(root):
     for f in files:
@@ -47,8 +57,10 @@ def walk_and_extract_archives(root):
 
 
 def extract(root, destination=None):
-  '''Extract the zip file at 'root' into the directory 'destination', or to 
-  the zip file's parent if 'destination' is None.'''
+  '''
+  Extract the zip file at 'root' into the directory 'destination', or to
+  the zip file's parent if 'destination' is None.
+  '''
   if root.endswith('.zip'):
     if destination == None:
       destination = os.path.basename(root)[:-4]
@@ -58,8 +70,10 @@ def extract(root, destination=None):
 
 
 def collapse_and_filter_directory(root, fnmatch_patterns):
-  '''Collect all files that match one of the 'fnmatch_patterns' into root, and
-  delete everything else.'''
+  '''
+  Collect all files that match one of the 'fnmatch_patterns' into root, and
+  delete everything else.
+  '''
   temp_dir = tempfile.mkdtemp()
   for local_root, _, files in os.walk(root):
     for f in files:
@@ -72,8 +86,10 @@ def collapse_and_filter_directory(root, fnmatch_patterns):
 
 
 def move(leftpath, rightpath, overwrite=False):
-  '''Move the item 'leftpath' to the item 'rightpath'. Returns True if the
-  item was actually overwritten or moved.'''
+  '''
+  Move the item 'leftpath' to the item 'rightpath'. Returns True if the
+  item was actually overwritten or moved.
+  '''
   if os.path.exists(rightpath):
     if overwrite:
       if os.path.isdir(rightpath):
@@ -91,7 +107,9 @@ def move(leftpath, rightpath, overwrite=False):
 
 def process_submission(submission, destination, clean_empty, overwrite,
     file_pattern):
-  '''Extract and cleanup a standard submission.'''
+  '''
+  Extract and cleanup a standard submission.
+  '''
   extract_dir = tempfile.mkdtemp()
   extracted_root = os.path.join(extract_dir, SUBMISSION_DIR_NAME)
   existing_root = os.path.join(destination)
@@ -102,14 +120,14 @@ def process_submission(submission, destination, clean_empty, overwrite,
       extracted_directory = os.path.join(extracted_root, f)
       existing_directory = os.path.join(existing_root, f)
       if move(extracted_directory, existing_directory, overwrite):
-        collapse_and_filter_directory(existing_directory, file_pattern)  
+        collapse_and_filter_directory(existing_directory, file_pattern)
   shutil.rmtree(extract_dir)
   if clean_empty:
     clean_empty_directories(destination)
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Robustly extracts the ' + 
+  parser = argparse.ArgumentParser(description='Robustly extracts the ' +
       'submission zip files downloaded from Cornell\'s CMS system.',
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 

@@ -10,7 +10,7 @@ import random
 import sys
 import json
 import functools
- 
+
 
 # Set the random seed so that the tests are consistent across all runs
 random.seed(20150219)
@@ -63,11 +63,11 @@ def list_of_tests_gen(s):
 class InterruptibleThreadGroup(threading.Thread):
   '''This class allows a user to run a list of tasks in different threads,
   and respond to requests for stoping, such as due to timeouts.
-  
+
   Note that this class intentionally uses the Python threading module
   instead of the multiprocessing module. The typical use-case of this
   class is to provide a way to execute tasks in a relatively
-  starvation-proof manner, that is, to allow all rest of the tasks to 
+  starvation-proof manner, that is, to allow all rest of the tasks to
   make progress even if a few of the tasks are not making progress. It
   specifically does not provide any guarentees as to whether the tasks will
   actually be executed in parallel (which, in case if CPython, is well-known to
@@ -103,10 +103,10 @@ class InterruptibleThreadGroup(threading.Thread):
     if finalizers is None:
       finalizers = [None] * len(tasks)
 
-    assert len(tasks) == len(arg), 'Length of \'tasks\' must be the same as ' +
-      'length of \'args\''
-      
-    assert len(tasks) == len(finalizers), 'Length of \'tasks\' must be the ' +
+    assert len(tasks) == len(args), 'Length of \'tasks\' must be the same ' +\
+      'as length of \'args\''
+
+    assert len(tasks) == len(finalizers), 'Length of \'tasks\' must be the ' +\
       'same as length of \'finalizers\''
 
     for task, arg, finalizer in zip (tasks, args, finalizers):
@@ -246,7 +246,7 @@ class SynchronizedTestResult(unittest.TestResult):
         s['unexpectedSuccesses'])
     s['aborted'] = list(set(x.id() for x in all_tests) - processed_union)
     return s
-          
+
 
 class TimeoutTestRunner(object):
   '''A unit test runner with support for timeouts built on top of the
@@ -284,7 +284,65 @@ class TimeoutTestRunner(object):
         disp_tasks, self.timeout)
     result.freeze()
     TimeoutTestRunner.process_test_cases(test_entity, 'tearDownClass')
-    return result
+    return resulti
+
+
+def process_one_submission(module, test_root, result_file_path='results.json',
+    timeout=600.0, overwrite_existing_results=False, verbose=False,
+    redir_console=None):
+
+  # Redirect console only once the arguments have been parsed
+  redirect_console(redir_console)
+
+  # Check if the module name was accidentally specified with .py extension
+  # and if so, correct it
+  if module.endswith('.py'):
+    module = module[:-3]
+
+  # First check if the result file exists
+  result_file_path = os.path.join(test_root, result_file_path)
+  basename = os.path.basename(os.path.abspath(test_root))
+  if os.path.isfile(result_file_path) and not overwrite_existing_results:
+    displayln('Results already exist for {0}'.format(basename))
+    sys.stdout.close()
+    exit(1)
+
+  # Typically, this module will be run in the same directory so we need to
+  # make the symlinks in those directory accessible by adding the current
+  # working directory to the path
+  sys.path.append(os.getcwd())
+
+  # Check if the specified test root is valid
+  if not os.path.isdir(test_root):
+    sys.stdout.close()
+    raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
+
+  # Append the test root to the python path so that the test module can be
+  # imported directly
+  sys.path.append(test_root)
+
+  # Import the test module and run the tests contained in it
+  m = __import__(module)
+  tests = unittest.defaultTestLoader.loadTestsFromModule(m)
+  result = TimeoutTestRunner(timeout).run(tests, verbose)
+  summary = result.summarize(tests)
+
+  # Write the test results as a JSON file
+  with open(result_file_path, 'w') as result_file:
+    json.dump(summary, result_file, indent=True)
+
+  # Display a summary of the students' results to let the test runner know
+  # the test runner is making progress
+  displayln(('{0}: Successful={1}/{6}, Errors={2}/{6}, Failed={3}/{6}, ' +
+    'Aborted={4}/{6}, Skipped={5}/{6}').format(basename,
+    len(summary['successes']), len(summary['errors']),
+    len(summary['failures']), len(summary['aborted']),
+    len(summary['skipped']), len(summary['allTests'])))
+
+  if len(summary['aborted']) > 0:
+    sys.stdout.close()
+    exit(2)
+  sys.stdout.close()
 
 
 if __name__ == '__main__':
@@ -323,60 +381,11 @@ if __name__ == '__main__':
     parser.print_help()
     sys.stdout.close()
     exit(-2)
-  
+
   args = parser.parse_args()
- 
-  # Redirect console only once the arguments have been parsed
-  redirect_console(args.redir_console)
 
-  # Check if the module name was accidentally specified with .py extension
-  # and if so, correct it
-  if args.module.endswith('.py'):
-    args.module = args.module[:-3]
-    
-  # First check if the result file exists
-  result_file_path = os.path.join(args.test_root, args.result_file_path)
-  basename = os.path.basename(os.path.abspath(args.test_root))
-  if os.path.isfile(result_file_path) and not args.overwrite_existing_results:
-    displayln('Results already exist for {0}'.format(basename))
-    sys.stdout.close()
-    exit(1)
-
-  # Typically, this module will be run in the same directory so we need to
-  # make the symlinks in those directory accessible by adding the current
-  # working directory to the path
-  sys.path.append(os.getcwd())
-
-  # Check if the specified test root is valid
-  if not os.path.isdir(args.test_root):
-    sys.stdout.close()
-    raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
-
-  # Append the test root to the python path so that the test module can be
-  # imported directly
-  sys.path.append(args.test_root)
-
-  # Import the test module and run the tests contained in it
-  m = __import__(args.module)
-  tests = unittest.defaultTestLoader.loadTestsFromModule(m)
-  result = TimeoutTestRunner(args.timeout).run(tests, args.verbose)
-  summary = result.summarize(tests)
-  
-  # Write the test results as a JSON file
-  with open(result_file_path, 'w') as result_file:
-    json.dump(summary, result_file, indent=True)
-
-  # Display a summary of the students' results to let the test runner know
-  # the test runner is making progress
-  displayln(('{0}: Successful={1}/{6}, Errors={2}/{6}, Failed={3}/{6}, ' + 
-    'Aborted={4}/{6}, Skipped={5}/{6}').format(basename,
-    len(summary['successes']), len(summary['errors']),
-    len(summary['failures']), len(summary['aborted']),
-    len(summary['skipped']), len(summary['allTests'])))
-    
-  if len(summary['aborted']) > 0:
-    sys.stdout.close()
-    exit(2)
-  sys.stdout.close()
+  process_one_submission(args.module, args.test_root, args.result_file_path,
+    args.timeout, args.overwrite_exisiting_results, args.verbose,
+    args.redir_console)
 
 # vim: set ts=2 sw=2 expandtab:
