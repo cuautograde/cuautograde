@@ -10,7 +10,7 @@ import textwrap
 import math
 import re
 from matplotlib.font_manager import FontProperties
-import matplotlib.ticker as ticker  
+import matplotlib.ticker as ticker
 
 OUTCOME_TYPES = ['successes', 'errors', 'failures', 'aborted', 'skipped',
     'expectedFailures', 'unexpectedSuccesses']
@@ -76,7 +76,7 @@ class GroupStatistics(object):
   def unsuccessful_count(self):
     return len(self.errors) + len(self.failures) + len(self.skipped) + \
         len(self.unexpectedSuccesses) + len(self.aborted)
-    
+
   def success_count(self):
     return self.test_count() - self.unsuccessful_count()
 
@@ -113,7 +113,7 @@ class GroupStatistics(object):
     output += self.pretty_print_category('skipped')
     output += self.pretty_print_category('unexpectedSuccesses')
     return output
-  
+
   @classmethod
   def from_file(cls, filename):
     '''Create a GroupStatistics instance by reading in a json dictionary
@@ -133,7 +133,7 @@ class StatisticsSet(object):
 
   @classmethod
   def from_directory(cls, root_dir, result_file_path):
-    '''Return a list of GroupStatistics for all the groups in a given 
+    '''Return a list of GroupStatistics for all the groups in a given
     directory.'''
     assert os.path.isdir(root_dir)
     stat_list = []
@@ -159,7 +159,7 @@ class StatisticsSet(object):
     output = test_identifier + '\n\n'
     for c, f in self.get_test_performance(test_identifier).iteritems():
       if len(f) > 0:
-        output += c.upper() + '\n' 
+        output += c.upper() + '\n'
       for g in f:
         output += g.format_group() + '\n'
       if len(f) > 0:
@@ -177,7 +177,7 @@ class StatisticsSet(object):
     '''Write the results of the test run to a human readable text file,
     relative to the root directory.'''
     for i in self.instances:
-      path = os.path.join(root_dir, i.get_dir_name(), result_file_path) 
+      path = os.path.join(root_dir, i.get_dir_name(), result_file_path)
       with open(path, 'w') as f:
         f.write(i.__str__())
 
@@ -283,7 +283,7 @@ class GradeFileProcessor(object):
         assert diff >= 0
         if diff > 0:
           self.contents_list[i] += [''] * diff
-  
+
   def update_records(self, record_ids, subs_values, additionalSources=[]):
     if not hasattr(record_ids, '__iter__'):
       record_ids = [record_ids]
@@ -291,11 +291,21 @@ class GradeFileProcessor(object):
       row_index = self.contents_index_map[rec_id]
       for k, v in subs_values.iteritems():
         if isinstance(v, numbers.Number):
-          maxVal = float(self.contents_list[row_index][ \
-            self.headers_index_map[k]])
+
+          maxVal = self.contents_list[row_index][ \
+            self.headers_index_map[k]]
+          if maxVal.strip() == '':
+            maxVal = 0
+          else:
+            maxVal = float(self.contents_list[row_index][ \
+              self.headers_index_map[k]])
           trueVal = float(v)
           for s in additionalSources:
-            curr = float(s.contents_list[row_index][s.headers_index_map[k]])
+            curr = s.contents_list[row_index][s.headers_index_map[k]]
+            if curr.strip() == '':
+              curr = 0
+            else:
+              curr = float(curr)
             if maxVal < curr:
               maxVal = curr
           if v < maxVal:
@@ -304,7 +314,7 @@ class GradeFileProcessor(object):
             print 'WARN: The score for {0} was {1} but has decreased to {2}'.\
                 format(rec_id, v, trueVal)
         self.contents_list[row_index][self.headers_index_map[k]] = v
-  
+
   def dump(self, filename):
     with open(filename, 'wb') as out_file:
       w = csv.writer(out_file)
@@ -315,7 +325,7 @@ class GradeFileProcessor(object):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Summarize the test results',
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  
+
   parser.add_argument('test_results_directory', help='The directory ' +
       'containing all the students test results.')
 
@@ -344,46 +354,46 @@ if __name__ == '__main__':
   parser.add_argument('-p', '--human-readable-summary', help='The file to ' +
       'store a human-readable summary of tests results for each group in the ' +
       'in the students\' results folder.', default=None)
-  
+
   parser.add_argument('-w', '--weight-per-test', help='The weight assigned ' +
       'to each test to compute the grade. Used by the CSV generator.',
       default=1, type=float)
 
   parser.add_argument('-q', '--offset-points', help='Points added to a total ' +
       'grade. Must be positive. Used by CSV generator', default=0, type=float)
-  
+
   parser.add_argument('-v', '--verbose', help='Prints out a description of ' +
       'unusual outcomes as they occur.', default=False, action='store_true')
-  
+
   parser.add_argument('-m', '--no-max', help='Disable the feature that forces' +
       'grades to only increase (i.e. never decrease).', default=False,
       action='store_true')
-  
+
   if len(sys.argv) == 1:
     parser.print_help()
     exit(-2)
- 
+
   args = parser.parse_args()
 
   stat = StatisticsSet.from_directory(args.test_results_directory,
       args.result_filename)
-  
+
   if args.csv_result_file is not None:
     if args.csv_result_output_file is None:
       args.csv_result_output_file = args.csv_result_file[0]
-    stat.fill_csv({'get_grade': 'Code', '__str__': 'Add Comments'},
+    stat.fill_csv({'get_grade': 'Grade', '__str__': 'Add Comments'},
         args.csv_result_file[0], args.csv_result_output_file,
         {'get_grade' : args.weight_per_test}, args.offset_points,
         args.csv_result_file, args.verbose)
-  
+
   if args.human_readable_summary is not None:
     stat.write_formatted_results(args.test_results_directory,
         args.human_readable_summary)
-  
+
   if args.num_students_vs_num_unsuccessful_plot is not None:
     stat.plot_error_count_vs_students(
         args.num_students_vs_num_unsuccessful_plot)
-  
+
   if args.num_students_by_unsuccess_type_plot:
     stat.plot_error_type_vs_students(args.num_students_by_unsuccess_type_plot)
 
