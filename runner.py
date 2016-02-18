@@ -284,7 +284,7 @@ class TimeoutTestRunner(object):
         disp_tasks, self.timeout)
     result.freeze()
     TimeoutTestRunner.process_test_cases(test_entity, 'tearDownClass')
-    return resulti
+    return result
 
 
 def process_one_submission(module, test_root, result_file_path='results.json',
@@ -303,9 +303,8 @@ def process_one_submission(module, test_root, result_file_path='results.json',
   result_file_path = os.path.join(test_root, result_file_path)
   basename = os.path.basename(os.path.abspath(test_root))
   if os.path.isfile(result_file_path) and not overwrite_existing_results:
-    displayln('Results already exist for {0}'.format(basename))
     sys.stdout.close()
-    exit(1)
+    raise Exception('Results already exist for {0}'.format(basename))
 
   # Typically, this module will be run in the same directory so we need to
   # make the symlinks in those directory accessible by adding the current
@@ -341,7 +340,7 @@ def process_one_submission(module, test_root, result_file_path='results.json',
 
   if len(summary['aborted']) > 0:
     sys.stdout.close()
-    exit(2)
+    raise Exception('Aborted some tests for {0}'.format(basename))
   sys.stdout.close()
 
 
@@ -384,8 +383,8 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  process_one_submission(args.module, args.test_root, args.result_file_path,
-    args.timeout, args.overwrite_exisiting_results, args.verbose,
-    args.redir_console)
+  exit(process_one_submission(args.module, args.test_root,
+    args.result_file_path, args.timeout, args.overwrite_existing_results,
+    args.verbose, args.redir_console))
 
 # vim: set ts=2 sw=2 expandtab:
