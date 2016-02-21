@@ -1,3 +1,0 @@
-argparse==1.2.1
-process-isolation==0.13
-wsgiref==0.1.2
