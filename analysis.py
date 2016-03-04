@@ -1,3 +1,4 @@
+from __future__ import print_function
 import json
 import os
 import argparse
@@ -250,7 +251,7 @@ class StatisticsSet(object):
 
   def fill_csv(self, mapping, csv_file, output_file, weights_map, offset,
       additionalSources, verbose=False):
-    p = GradeFileProcessor(csv_file, output_file)
+    p = GradeFileProcessor(csv_file)
     for g in self.instances:
       subs_values = dict()
       for func_name, rec_name in mapping.iteritems():
@@ -265,33 +266,45 @@ class StatisticsSet(object):
 
 
 class GradeFileProcessor(object):
-  def __init__(self, filename, result_filename=None):
-    self.filename = filename
-    self.result_filename = filename if not result_filename else result_filename
+  def __init__(self, filename):
     with open(self.filename, 'r') as input_file:
       contents = list(csv.reader(input_file))
-      assert len(contents) > 0
+      assert len(contents) > 0, 'The CSV file {} is empty.'.format(filename)
+
+      # Ordered list of column names.
       self.headers_list = contents[0]
+
+      # Mapping from comlumn names to the respective index.
       self.headers_index_map = {k:i for i, k in enumerate(self.headers_list)}
+
+      # The contents of the table.
       self.contents_list = contents[1:]
+
+      # Mapping from the leftmost value of a column to the column's index.
       self.contents_index_map = \
           {e[0]: i for i, e in enumerate(self.contents_list)}
 
-      # Make all the rows match the number of the headers
+      # Make all the rows match the number of the headers.
       for i in range(len(self.contents_list)):
         diff = len(self.headers_list) - len(self.contents_list[i])
-        assert diff >= 0
+        assert diff >= 0, 'Row {} is longer than the number of headers'.format(i)
         if diff > 0:
           self.contents_list[i] += [''] * diff
 
+  def contains_column(self, colname):
+    '''Returns True if the CSV file contains the specified column.'''
+    return colname in self.headers
+
   def update_records(self, record_ids, subs_values, additionalSources=[]):
+    # If the record_ids is a single value, make it a list with one item.
+
     if not hasattr(record_ids, '__iter__'):
       record_ids = [record_ids]
     for rec_id in record_ids:
       row_index = self.contents_index_map[rec_id]
       for k, v in subs_values.iteritems():
+        assert self.contains_column(k), 'Column {} does not exist.'.format(k)
         if isinstance(v, numbers.Number):
-
           maxVal = self.contents_list[row_index][ \
             self.headers_index_map[k]]
           if maxVal.strip() == '':
@@ -311,8 +324,8 @@ class GradeFileProcessor(object):
           if v < maxVal:
             v = curr
           if abs(trueVal - v) > 1e-5:
-            print 'WARN: The score for {0} was {1} but has decreased to {2}'.\
-                format(rec_id, v, trueVal)
+            print('WARN: The score for {0} was {1} but has decreased to {2}'.\
+                format(rec_id, v, trueVal))
         self.contents_list[row_index][self.headers_index_map[k]] = v
 
   def dump(self, filename):
@@ -382,12 +395,18 @@ if __name__ == '__main__':
       args.result_filename)
 
   if args.csv_result_file is not None:
-    if args.csv_result_output_file is None:
-      args.csv_result_output_file = args.csv_result_file[0]
-    stat.fill_csv({'get_grade': args.column_name, '__str__': 'Add Comments'},
-        args.csv_result_file[0], args.csv_result_output_file,
-        {'get_grade' : args.weight_per_test}, args.offset_points,
-        args.csv_result_file, args.verbose)
+    if not (os.path.isfile(args.csv_result_file) and \
+        args.csv_result_file.endswith('.csv')):
+      print('{} is does not exist or is not a file.'.format(
+        args.csv_result_file)
+    else:
+      if args.csv_result_output_file is None:
+        print('Will modify the CSV file in place.')
+        args.csv_result_output_file = args.csv_result_file[0]
+      stat.fill_csv({'get_grade': args.column_name, '__str__': 'Add Comments'},
+          args.csv_result_file[0], args.csv_result_output_file,
+          {'get_grade' : args.weight_per_test}, args.offset_points,
+          args.csv_result_file, args.verbose)
 
   if args.human_readable_summary is not None:
     stat.write_formatted_results(args.test_results_directory,
