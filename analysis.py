@@ -8,7 +8,6 @@ import itertools
 import csv
 import sys
 import textwrap
-import math
 import re
 from matplotlib.font_manager import FontProperties
 import matplotlib.ticker as ticker
@@ -398,7 +397,7 @@ if __name__ == '__main__':
     if not (os.path.isfile(args.csv_result_file) and \
         args.csv_result_file.endswith('.csv')):
       print('{} is does not exist or is not a file.'.format(
-        args.csv_result_file)
+        args.csv_result_file))
     else:
       if args.csv_result_output_file is None:
         print('Will modify the CSV file in place.')
