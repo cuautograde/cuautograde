@@ -266,7 +266,7 @@ class StatisticsSet(object):
 
 class GradeFileProcessor(object):
   def __init__(self, filename):
-    with open(self.filename, 'r') as input_file:
+    with open(filename, 'r') as input_file:
       contents = list(csv.reader(input_file))
       assert len(contents) > 0, 'The CSV file {} is empty.'.format(filename)
 
@@ -292,7 +292,7 @@ class GradeFileProcessor(object):
 
   def contains_column(self, colname):
     '''Returns True if the CSV file contains the specified column.'''
-    return colname in self.headers
+    return colname in self.headers_list
 
   def update_records(self, record_ids, subs_values, additionalSources=[]):
     # If the record_ids is a single value, make it a list with one item.
