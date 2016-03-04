@@ -393,11 +393,11 @@ if __name__ == '__main__':
   stat = StatisticsSet.from_directory(args.test_results_directory,
       args.result_filename)
 
-  if args.csv_result_file is not None:
-    if not (os.path.isfile(args.csv_result_file) and \
-        args.csv_result_file.endswith('.csv')):
-      print('{} is does not exist or is not a file.'.format(
-        args.csv_result_file))
+  if len(args.csv_result_file) != 0:
+    for filename in args.csv_result_file:
+      if not (os.path.isfile(filename) and filename.endswith('.csv')):
+        print('{} is does not exist or is not a file.'.format(filename))
+        sys.exit(-1)
     else:
       if args.csv_result_output_file is None:
         print('Will modify the CSV file in place.')
