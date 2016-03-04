@@ -336,6 +336,9 @@ if __name__ == '__main__':
       'files downloaded from CMS for adding grades. The max of the grades ' +
       'will be written to the output CSV file specified.', nargs='+')
 
+  parser.add_argument('-k', '--column-name', help='The name of the column in ' +
+      'the CSV file that contains students\' grades.', default='Grade')
+
   parser.add_argument('-o', '--csv-result-output-file', help='The CSV file ' +
       'to write the output to. Same as csv-result-file if not specified.',
       default=None)
@@ -381,7 +384,7 @@ if __name__ == '__main__':
   if args.csv_result_file is not None:
     if args.csv_result_output_file is None:
       args.csv_result_output_file = args.csv_result_file[0]
-    stat.fill_csv({'get_grade': 'Grade', '__str__': 'Add Comments'},
+    stat.fill_csv({'get_grade': args.column_name, '__str__': 'Add Comments'},
         args.csv_result_file[0], args.csv_result_output_file,
         {'get_grade' : args.weight_per_test}, args.offset_points,
         args.csv_result_file, args.verbose)
