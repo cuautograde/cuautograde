@@ -26,9 +26,13 @@ def byteify(input):
     else:
         return input
 
+def json_load(filename):
+    with open(filename, 'r') as infile:
+        return byteify(json.load(infile))
+
+
 # Initialize the default parameters
-with open('default_config.json', 'r') as infile:
-    config = byteify(json.load(infile))
+config = json_load('default_config.json')
 
 def check_if_name_exists(name):
     '''Returns True is the specified name exists in the upload directory.'''
@@ -69,7 +73,6 @@ def accept_submission():
         if not os.path.isdir(upload_dir_root):
             os.makedirs(upload_dir_root)
         name = generate_dirname()
-        print('Name generated: {}'.format(name))
         upload_dir = os.path.join(upload_dir_root, name)
         os.mkdir(upload_dir)
         zipfile = os.path.join(upload_dir, name + '.zip')
@@ -93,7 +96,15 @@ def accept_submission():
 
 @app.route('/results/<string:id>')
 def display_results(id):
-    pass
+    if check_if_results_ready(id):
+        res = os.expanduser(os.path.join(config['upload_dir'], name,
+           'results.json'))
+        results = json_load(res)
+        return  'Successes: {}'.format(len(results['successes'])) + '\n' + \
+                'Failures:  {}'.format(len(results['failures']))  + '\n' + \
+                'Errors:    {}'.format(len(results['errors']))    + '\n' + \
+                'Aborted:   {}'.format(len(results['aborted']))   + '\n' + \
+                'Total:     {}'.format(len(results['allTests']))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autograder web service.',
@@ -109,14 +120,12 @@ if __name__ == '__main__':
         if os.path.isfile(args.config):
             try:
                 # Read the new config file and override the defaults
-                with open(args.config, 'r') as infile:
-                    overriding_config = byteify(json.load(infile))
-                    for k, v in overriding_config.items():
-                        config[k] = v
+                overriding_config = json_load(args.config)
+                for k, v in overriding_config.items():
+                    config[k] = v
             except:
                 print('Error reading the config file {}.'.format(args.config))
                 sys.exit(-1)
         else:
             print('{} is not a path to a valid file.'.format(args.config))
-    print(config)
     app.run(host='0.0.0.0', debug=True)
