@@ -1,0 +1,6 @@
+{
+  "title": "Autograder Web Service",
+  "filename_length": 6,
+  "upload_dir": "/uploads",
+  "sentinel": "complete.txt"
+}

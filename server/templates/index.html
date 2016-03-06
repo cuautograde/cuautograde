@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+{% block content %}
+<main>
+  <header>
+    <h1>{{ config.title }}</h1>
+  </header>
+  <form action='submit' method='POST' enctype='multipart/form-data'>
+    <input type='file' name='submission' accept='zip'>
+    <input type='submit' value='Upload'>
+  </form>
+</main>
+{% endblock %}

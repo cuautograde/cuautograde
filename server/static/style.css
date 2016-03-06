@@ -1,0 +1,20 @@
+header {
+  text-align: center;
+}
+
+body {
+  margin: 0 auto;
+  width: 800px;
+  background-image: url('http://cdn.backgroundhost.com/backgrounds/subtlepatterns/billie_holiday.png');
+  background-repeat: repeat;
+}
+
+form {
+  margin: 0 auto;
+  width: 400px;
+  text-align: center;
+}
+
+main {
+  background: none;
+}
