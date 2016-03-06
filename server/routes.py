@@ -119,4 +119,4 @@ if __name__ == '__main__':
         else:
             print('{} is not a path to a valid file.'.format(args.config))
     print(config)
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)
