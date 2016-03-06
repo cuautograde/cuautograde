@@ -94,17 +94,24 @@ def accept_submission():
     return 'Invalid submission.'
 
 
-@app.route('/results/<string:id>')
-def display_results(id):
+@app.route('/results')
+def display_results():
+    id = request.args.get('id')
+    if not id:
+        return 'No ID specified.'
     if check_if_results_ready(id):
-        res = os.expanduser(os.path.join(config['upload_dir'], name,
+        res = os.path.expanduser(os.path.join(config['upload_dir'], id,
            'results.json'))
+        if not os.path.isfile(res):
+            return 'Your submission was malformed, so no unit tests could run.'
         results = json_load(res)
-        return  'Successes: {}'.format(len(results['successes'])) + '\n' + \
-                'Failures:  {}'.format(len(results['failures']))  + '\n' + \
-                'Errors:    {}'.format(len(results['errors']))    + '\n' + \
-                'Aborted:   {}'.format(len(results['aborted']))   + '\n' + \
+        return  'Successes: {}, '.format(len(results['successes'])) + \
+                'Failures:  {}, '.format(len(results['failures']))  + \
+                'Errors:    {}, '.format(len(results['errors']))    + \
+                'Aborted:   {}, '.format(len(results['aborted']))   + \
                 'Total:     {}'.format(len(results['allTests']))
+    else:
+        return 'Result not available.'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Autograder web service.',
