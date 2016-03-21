@@ -264,7 +264,10 @@ class TimeoutTestRunner(object):
       for t in entity:
         if isinstance(t, unittest.TestCase):
           if not t.__class__ in already_processed:
-            getattr(t.__class__, func_name)()
+            try:
+              getattr(t.__class__, func_name)()
+            except:
+              pass
             already_processed.add(t.__class__)
         else:
           TimeoutTestRunner.process_test_cases(t, func_name, already_processed)
