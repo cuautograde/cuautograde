@@ -306,7 +306,6 @@ def process_one_submission(module, test_root, result_file_path='results.json',
   result_file_path = os.path.join(test_root, result_file_path)
   basename = os.path.basename(os.path.abspath(test_root))
   if os.path.isfile(result_file_path) and not overwrite_existing_results:
-    sys.stdout.close()
     raise Exception('Results already exist for {0}'.format(basename))
 
   # Typically, this module will be run in the same directory so we need to
@@ -316,7 +315,6 @@ def process_one_submission(module, test_root, result_file_path='results.json',
 
   # Check if the specified test root is valid
   if not os.path.isdir(test_root):
-    sys.stdout.close()
     raise Exception('Invalid \'test_root\': {0}'.format(args.test_root))
 
   # Append the test root to the python path so that the test module can be
@@ -342,9 +340,7 @@ def process_one_submission(module, test_root, result_file_path='results.json',
     len(summary['skipped']), len(summary['allTests'])))
 
   if len(summary['aborted']) > 0:
-    sys.stdout.close()
     raise Exception('Aborted some tests for {0}'.format(basename))
-  sys.stdout.close()
 
 
 if __name__ == '__main__':
@@ -386,8 +382,19 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  exit(process_one_submission(args.module, args.test_root,
-    args.result_file_path, args.timeout, args.overwrite_existing_results,
-    args.verbose, args.redir_console))
+  exitcode = -1
+  try:
+    exitcode = process_one_submission(
+      args.module, args.test_root, args.result_file_path, args.timeout,
+      args.overwrite_existing_results, args.verbose, args.redir_console
+    )
+  except Exception as e:
+    import traceback
+    traceback.print_exc()
+  finally:
+    sys.stdout.close()
+
+  exit(exitcode)
+
 
 # vim: set ts=2 sw=2 expandtab:
