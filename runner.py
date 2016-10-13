@@ -1,15 +1,12 @@
 import time
 import argparse
-import multiprocessing
 import os
 import threading
-import subprocess
 import unittest
 import traceback
 import random
 import sys
 import json
-import functools
 
 
 # Set the random seed so that the tests are consistent across all runs
@@ -388,9 +385,8 @@ if __name__ == '__main__':
       args.module, args.test_root, args.result_file_path, args.timeout,
       args.overwrite_existing_results, args.verbose, args.redir_console
     )
-  except Exception as e:
-    import traceback
-    traceback.print_exc()
+  except:
+    traceback.print_exc(file=sys.stdout)
   finally:
     sys.stdout.close()
 
