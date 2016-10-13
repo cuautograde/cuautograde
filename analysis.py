@@ -393,7 +393,7 @@ if __name__ == '__main__':
   stat = StatisticsSet.from_directory(args.test_results_directory,
       args.result_filename)
 
-  if len(args.csv_result_file) != 0:
+  if args.csv_result_file != None and len(args.csv_result_file) != 0:
     for filename in args.csv_result_file:
       if not (os.path.isfile(filename) and filename.endswith('.csv')):
         print('{} is does not exist or is not a file.'.format(filename))
